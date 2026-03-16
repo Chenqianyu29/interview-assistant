@@ -7,7 +7,7 @@ import { BotMessageSquare, ChevronDown, User } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "问答" },
-  { href: "/history", label: "历史" },
+  { href: "/practice", label: "练习", disabled: true },
 ];
 
 export function Header() {
@@ -21,22 +21,31 @@ export function Header() {
         <span className="text-sm">InterviewCopilot</span>
       </Link>
 
-      {/* Center: Nav Tabs */}
-      <nav className="flex items-center gap-6">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "text-sm transition-colors hover:text-foreground",
-              pathname === item.href
-                ? "font-medium text-foreground"
-                : "text-muted-foreground",
-            )}
-          >
-            {item.label}
-          </Link>
-        ))}
+      {/* Center: Nav Tabs (练习 tab reserved for Phase 2) */}
+      <nav className="hidden items-center gap-6">
+        {navItems.map((item) =>
+          item.disabled ? (
+            <span
+              key={item.href}
+              className="cursor-not-allowed text-sm text-muted-foreground/50"
+            >
+              {item.label}
+            </span>
+          ) : (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "text-sm transition-colors hover:text-foreground",
+                pathname === item.href
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              {item.label}
+            </Link>
+          ),
+        )}
       </nav>
 
       {/* Right: Role Tag + User */}
