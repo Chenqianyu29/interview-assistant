@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useChat } from "ai/react";
 import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
+import type { Role } from "@/types/role";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -26,28 +26,68 @@ export default function ResultPage() {
   const save = useQuestionStore((s) => s.save);
   const unsave = useQuestionStore((s) => s.unsave);
 
-  const { messages, append, reload, isLoading, error, setMessages } = useChat({
-    body: { role: roleSnapshot },
-  });
+  const [answer, setAnswer] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const lastIdRef = useRef<number | null>(null);
+  const generate = useCallback(async (q: string, role: Role) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-  useEffect(() => {
-    if (questionId && questionId !== lastIdRef.current && question) {
-      lastIdRef.current = questionId;
-      setMessages([]);
-      append({ role: "user", content: question });
+    setAnswer("");
+    setError(null);
+    setIsStreaming(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, role }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error(`生成失败 (${res.status})`);
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setAnswer((prev) => prev + decoder.decode(value));
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setError(err instanceof Error ? err.message : "未知错误");
+      }
+    } finally {
+      setIsStreaming(false);
     }
-  }, [questionId, question, setMessages, append]);
+  }, []);
 
-  const assistantMsg = messages.find((m) => m.role === "assistant");
-  const answer = assistantMsg?.content ?? "";
+  // Auto-trigger on new question
+  const lastIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (questionId && questionId !== lastIdRef.current && question && roleSnapshot) {
+      lastIdRef.current = questionId;
+      generate(question, roleSnapshot);
+    }
+  }, [questionId, question, roleSnapshot, generate]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   const hasAnswer = answer.length > 0;
   const isSaved = saveStatus === "saved";
 
   const handleRegenerate = () => {
+    if (!question || !roleSnapshot) return;
     unsave();
-    reload();
+    generate(question, roleSnapshot);
   };
 
   const handleUnsave = () => {
@@ -56,7 +96,7 @@ export default function ResultPage() {
     }
   };
 
-  // Empty state — no question pending
+  // Empty state
   if (!question || !roleSnapshot) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -103,11 +143,11 @@ export default function ResultPage() {
 
           {error && (
             <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              生成失败：{error.message}
+              {error}
             </div>
           )}
 
-          {isLoading && !hasAnswer && (
+          {isStreaming && !hasAnswer && (
             <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               正在生成回答…
@@ -117,17 +157,15 @@ export default function ResultPage() {
           {hasAnswer && (
             <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">
               {answer}
-              {isLoading && (
-                <span className="inline-block animate-pulse text-primary">
-                  ▍
-                </span>
+              {isStreaming && (
+                <span className="inline-block animate-pulse text-primary">▍</span>
               )}
             </div>
           )}
         </section>
 
-        {/* Actions — only after streaming completes */}
-        {hasAnswer && !isLoading && (
+        {/* Actions — after streaming completes */}
+        {hasAnswer && !isStreaming && (
           <>
             <hr className="my-6" />
 
