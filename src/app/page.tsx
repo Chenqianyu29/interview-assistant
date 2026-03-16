@@ -1,4 +1,4 @@
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, ChevronDown } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -30,9 +30,12 @@ export default function HomePage() {
               <ArrowUp className="h-4 w-4" />
             </button>
           </div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-            <span>当前角色：职场人·1~3年·大厂</span>
-            <span>∨</span>
+          <div className="mt-2 flex items-center text-xs text-muted-foreground">
+            <span>当前角色：</span>
+            <button className="flex items-center gap-0.5 transition-colors hover:text-foreground">
+              <span>职场人·1~3年·大厂</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
