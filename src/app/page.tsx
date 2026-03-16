@@ -16,15 +16,15 @@ export default function HomePage() {
       {/* Input area */}
       <div className="border-t p-4">
         <div className="mx-auto max-w-2xl">
-          <div className="relative">
+          <div className="flex items-center gap-2 rounded-xl border px-4 py-2 shadow-sm">
             <textarea
               placeholder="Send a message..."
               rows={1}
-              className="w-full resize-none rounded-xl border bg-background px-4 py-3 pr-12 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
               disabled
             />
             <button
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-primary p-1.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-primary p-1.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
               disabled
             >
               <ArrowUp className="h-4 w-4" />
