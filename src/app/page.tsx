@@ -1,20 +1,45 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUp } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useRoleStore, selectEffectiveRole } from "@/stores/role";
+import { useQuestionStore } from "@/stores/question";
 import { formatRole, isRoleEqual } from "@/types/role";
 import type { Role } from "@/types/role";
 import { RoleSelectorPanel } from "@/components/role-selector";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [input, setInput] = useState("");
+
   const globalRole = useRoleStore((s) => s.globalRole);
   const overrideRole = useRoleStore((s) => s.overrideRole);
   const setOverrideRole = useRoleStore((s) => s.setOverrideRole);
   const clearOverride = useRoleStore((s) => s.clearOverride);
   const effectiveRole = useRoleStore(selectEffectiveRole);
 
+  const startQuestion = useQuestionStore((s) => s.startQuestion);
+
   const hasOverride = overrideRole !== null;
+  const canSubmit = input.trim().length > 0;
+
+  const handleSubmit = () => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    startQuestion(trimmed, effectiveRole);
+    clearOverride();
+    setInput("");
+    router.push("/result");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
 
   const handleOverrideChange = (role: Role) => {
     if (isRoleEqual(role, globalRole)) {
@@ -32,16 +57,19 @@ export default function HomePage() {
       </p>
 
       <div className="mt-8 w-full max-w-2xl">
-        <div className="flex items-end gap-2 rounded-xl border px-4 py-3 shadow-sm">
+        <div className="flex items-end gap-2 rounded-xl border px-4 py-3 shadow-sm focus-within:ring-2 focus-within:ring-ring/50">
           <textarea
-            placeholder="请输入你的问题"
+            placeholder="请输入你的问题..."
             rows={4}
             className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
-            disabled
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
           />
           <button
             className="shrink-0 rounded-lg bg-primary p-1.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-            disabled
+            disabled={!canSubmit}
+            onClick={handleSubmit}
           >
             <ArrowUp className="h-4 w-4" />
           </button>
@@ -92,9 +120,13 @@ export default function HomePage() {
               className="ml-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
               onClick={clearOverride}
             >
-              恢复默认
+              重置
             </button>
           )}
+
+          <span className="ml-auto text-[11px] text-muted-foreground/60">
+            ⌘ + Enter 发送
+          </span>
         </div>
       </div>
     </div>
