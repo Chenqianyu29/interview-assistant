@@ -4,6 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BotMessageSquare, ChevronDown, User } from "lucide-react";
+import { Popover } from "@base-ui/react/popover";
+import { useRoleStore } from "@/stores/role";
+import { formatRole } from "@/types/role";
+import { RoleSelectorPanel } from "@/components/role-selector";
 
 const navItems = [
   { href: "/", label: "问答" },
@@ -12,16 +16,16 @@ const navItems = [
 
 export function Header() {
   const pathname = usePathname();
+  const globalRole = useRoleStore((s) => s.globalRole);
+  const setGlobalRole = useRoleStore((s) => s.setGlobalRole);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-      {/* Left: Logo */}
       <Link href="/" className="flex items-center gap-2 font-semibold">
         <BotMessageSquare className="h-5 w-5" />
         <span className="text-sm">InterviewCopilot</span>
       </Link>
 
-      {/* Center: Nav Tabs (练习 tab reserved for Phase 2) */}
       <nav className="hidden items-center gap-6">
         {navItems.map((item) =>
           item.disabled ? (
@@ -48,12 +52,29 @@ export function Header() {
         )}
       </nav>
 
-      {/* Right: Role Tag + User */}
       <div className="flex items-center gap-3">
-        <button className="flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent">
-          <span>职场人·1~3年·大厂</span>
-          <ChevronDown className="h-3 w-3" />
-        </button>
+        <Popover.Root>
+          <Popover.Trigger
+            className="flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
+          >
+            <span>{formatRole(globalRole)}</span>
+            <ChevronDown className="h-3 w-3" />
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Positioner side="bottom" align="end" sideOffset={8}>
+              <Popover.Popup className="z-50 w-64 rounded-lg border bg-popover shadow-md outline-none">
+                <div className="border-b px-3 pt-2.5 pb-2">
+                  <p className="text-xs font-medium">全局角色设置</p>
+                </div>
+                <RoleSelectorPanel
+                  value={globalRole}
+                  onChange={setGlobalRole}
+                />
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+
         <div className="flex items-center gap-1.5 text-sm">
           <span className="text-muted-foreground">user</span>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
