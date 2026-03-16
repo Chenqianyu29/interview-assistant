@@ -46,13 +46,15 @@ InterviewCopilot
 
 ### 2.2 技术栈
 
-- **前端框架**: React 18
-- **路由管理**: React Router
+- **前端框架**: Next.js (App Router)
+- **AI 对话 UI**: [assistant-ui](https://www.assistant-ui.com/)
+- **AI 后端**: [Vercel AI SDK](https://sdk.vercel.ai/)
 - **状态管理**: Zustand
-- **样式库**: TailwindCSS
-- **HTTP客户端**: Axios
+- **样式库**: TailwindCSS + shadcn/ui
 - **AI 服务**: OpenAI / DeepSeek API
-- **数据存储**: LocalStorage / JSON Server
+- **数据库**: [Neon](https://neon.tech/) (Serverless Postgres)
+- **ORM**: Drizzle ORM
+- **部署**: [Vercel](https://vercel.com/)
 
 ---
 
@@ -186,7 +188,7 @@ InterviewCopilot
 #### 3.4.2 存储方式
 
 - MVP阶段：`localStorage`
-- 扩展阶段：`json-server` 或后端数据库
+- 扩展阶段：Neon Serverless Postgres + Drizzle ORM
 
 ---
 
