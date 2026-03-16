@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, ChevronDown, X } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useRoleStore, selectEffectiveRole } from "@/stores/role";
 import { formatRole, isRoleEqual } from "@/types/role";
@@ -54,11 +54,10 @@ export default function HomePage() {
               className={
                 hasOverride
                   ? "flex items-center gap-0.5 rounded-md border border-primary/40 bg-primary/5 px-1.5 py-0.5 text-primary transition-colors hover:bg-primary/10"
-                  : "flex items-center gap-0.5 transition-colors hover:text-foreground"
+                  : "flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 transition-colors hover:bg-accent"
               }
             >
               <span>{formatRole(effectiveRole)}</span>
-              <ChevronDown className="h-3.5 w-3.5" />
             </Popover.Trigger>
             <Popover.Portal>
               <Popover.Positioner side="bottom" align="start" sideOffset={8}>
@@ -90,11 +89,10 @@ export default function HomePage() {
 
           {hasOverride && (
             <button
-              className="ml-1 text-muted-foreground transition-colors hover:text-foreground"
+              className="ml-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
               onClick={clearOverride}
-              title="恢复全局角色"
             >
-              <X className="h-3 w-3" />
+              恢复默认
             </button>
           )}
         </div>

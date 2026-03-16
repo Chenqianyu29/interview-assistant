@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BotMessageSquare, ChevronDown, User } from "lucide-react";
+import { BotMessageSquare, User } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useRoleStore } from "@/stores/role";
 import { formatRole } from "@/types/role";
@@ -58,7 +58,6 @@ export function Header() {
             className="flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
           >
             <span>{formatRole(globalRole)}</span>
-            <ChevronDown className="h-3 w-3" />
           </Popover.Trigger>
           <Popover.Portal>
             <Popover.Positioner side="bottom" align="end" sideOffset={8}>
