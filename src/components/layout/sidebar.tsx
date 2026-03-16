@@ -38,23 +38,19 @@ export function Sidebar() {
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex flex-1 items-center justify-center overflow-y-auto p-2">
         {activeTab === "history" ? (
-          <div className="space-y-1">
-            <SidebarItem
-              icon={<MessageSquare className="h-4 w-4" />}
-              label="暂无历史记录"
-              muted
-            />
-          </div>
+          <SidebarItem
+            icon={<MessageSquare className="h-4 w-4" />}
+            label="暂无历史记录"
+            muted
+          />
         ) : (
-          <div className="space-y-1">
-            <SidebarItem
-              icon={<Star className="h-4 w-4" />}
-              label="暂无收藏"
-              muted
-            />
-          </div>
+          <SidebarItem
+            icon={<Star className="h-4 w-4" />}
+            label="暂无收藏"
+            muted
+          />
         )}
       </div>
     </aside>
