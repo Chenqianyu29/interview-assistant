@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
-import type { Role } from "@/types/role";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -29,65 +28,56 @@ export default function ResultPage() {
   const [answer, setAnswer] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const [regenerateCount, setRegenerateCount] = useState(0);
 
-  const generate = useCallback(async (q: string, role: Role) => {
-    abortRef.current?.abort();
+  // Streaming effect — strict-mode safe
+  useEffect(() => {
+    if (!questionId || !question || !roleSnapshot) return;
+
     const controller = new AbortController();
-    abortRef.current = controller;
-
     setAnswer("");
     setError(null);
     setIsStreaming(true);
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, role }),
-        signal: controller.signal,
-      });
+    (async () => {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, role: roleSnapshot }),
+          signal: controller.signal,
+        });
 
-      if (!res.ok) throw new Error(`生成失败 (${res.status})`);
+        if (!res.ok) throw new Error(`生成失败 (${res.status})`);
 
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        setAnswer((prev) => prev + decoder.decode(value));
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          setAnswer((prev) => prev + decoder.decode(value));
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setError(err instanceof Error ? err.message : "未知错误");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsStreaming(false);
+        }
       }
-    } catch (err) {
-      if ((err as Error).name !== "AbortError") {
-        setError(err instanceof Error ? err.message : "未知错误");
-      }
-    } finally {
-      setIsStreaming(false);
-    }
-  }, []);
+    })();
 
-  // Auto-trigger on new question
-  const lastIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (questionId && questionId !== lastIdRef.current && question && roleSnapshot) {
-      lastIdRef.current = questionId;
-      generate(question, roleSnapshot);
-    }
-  }, [questionId, question, roleSnapshot, generate]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => abortRef.current?.abort();
-  }, []);
+    return () => controller.abort();
+  }, [questionId, question, roleSnapshot, regenerateCount]);
 
   const hasAnswer = answer.length > 0;
   const isSaved = saveStatus === "saved";
 
   const handleRegenerate = () => {
-    if (!question || !roleSnapshot) return;
     unsave();
-    generate(question, roleSnapshot);
+    setRegenerateCount((c) => c + 1);
   };
 
   const handleUnsave = () => {
@@ -164,13 +154,17 @@ export default function ResultPage() {
           )}
         </section>
 
-        {/* Actions — after streaming completes */}
+        {/* Actions */}
         {hasAnswer && !isStreaming && (
           <>
             <hr className="my-6" />
 
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={handleRegenerate}>
+              <Button
+                variant="outline"
+                onClick={handleRegenerate}
+                disabled={isSaved}
+              >
                 <RefreshCw className="h-3.5 w-3.5" />
                 重新生成
               </Button>
@@ -186,9 +180,7 @@ export default function ResultPage() {
                   撤销保存
                 </Button>
               )}
-            </div>
 
-            <div className="mt-3 flex flex-wrap gap-3">
               <Button variant="outline" disabled={!isSaved}>
                 <Sparkles className="h-3.5 w-3.5" />
                 STAR 优化
