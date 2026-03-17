@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
+import { StarCard } from "@/components/star-card";
 import Markdown from "react-markdown";
 import {
   ArrowLeft,
@@ -26,10 +27,18 @@ export default function ResultPage() {
   const save = useQuestionStore((s) => s.save);
   const unsave = useQuestionStore((s) => s.unsave);
 
+  const starStatus = useQuestionStore((s) => s.starStatus);
+  const starSections = useQuestionStore((s) => s.starSections);
+  const setStarRaw = useQuestionStore((s) => s.setStarRaw);
+  const setStarStatus = useQuestionStore((s) => s.setStarStatus);
+  const resetStar = useQuestionStore((s) => s.resetStar);
+
   const [answer, setAnswer] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [regenerateCount, setRegenerateCount] = useState(0);
+
+  const starAbortRef = useRef<AbortController | null>(null);
 
   // Streaming effect — strict-mode safe
   useEffect(() => {
@@ -82,8 +91,48 @@ export default function ResultPage() {
   };
 
   const handleUnsave = () => {
+    starAbortRef.current?.abort();
     unsave();
   };
+
+  const handleStarOptimize = useCallback(async () => {
+    if (!question || !roleSnapshot || !answer) return;
+
+    starAbortRef.current?.abort();
+    const controller = new AbortController();
+    starAbortRef.current = controller;
+
+    resetStar();
+    setStarStatus("streaming");
+
+    try {
+      const res = await fetch("/api/star", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, answer, role: roleSnapshot }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error(`STAR 生成失败 (${res.status})`);
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value);
+        setStarRaw(accumulated);
+      }
+
+      setStarStatus("done");
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setStarStatus("error");
+      }
+    }
+  }, [question, answer, roleSnapshot, resetStar, setStarRaw, setStarStatus]);
 
   // Empty state
   if (!question || !roleSnapshot) {
@@ -182,15 +231,46 @@ export default function ResultPage() {
                 </Button>
               )}
 
-              <Button variant="outline" disabled={!isSaved}>
-                <Sparkles className="h-3.5 w-3.5" />
-                STAR 优化
+              <Button
+                variant="outline"
+                disabled={!isSaved || starStatus === "streaming"}
+                onClick={handleStarOptimize}
+              >
+                {starStatus === "streaming" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {starStatus === "done" ? "重新 STAR" : "STAR 优化"}
               </Button>
               <Button variant="outline" disabled={!isSaved}>
                 <MessageSquarePlus className="h-3.5 w-3.5" />
                 模拟追问
               </Button>
             </div>
+
+            {/* STAR Section */}
+            {starStatus !== "idle" && (
+              <>
+                <hr className="my-6" />
+
+                <section>
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    STAR 结构化回答
+                  </h3>
+
+                  {starStatus === "error" && (
+                    <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                      STAR 生成失败，请重试
+                    </div>
+                  )}
+
+                  <div className="mt-3">
+                    <StarCard sections={starSections} status={starStatus} />
+                  </div>
+                </section>
+              </>
+            )}
           </>
         )}
       </div>

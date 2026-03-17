@@ -42,3 +42,44 @@ export function buildSystemPrompt(role: Role): string {
 5. 回答长度适中（300~600字），既全面又精炼
 6. 使用中文回答`;
 }
+
+export function buildStarPrompt(role: Role): string {
+  const identity = IDENTITY_MAP[role.identity];
+  const experience = role.experience ? EXPERIENCE_MAP[role.experience] : null;
+  const scenario = SCENARIO_MAP[role.scenario];
+
+  const profileParts = [identity];
+  if (experience) profileParts.push(experience);
+  const profile = profileParts.join("，");
+
+  return `你是一位资深面试辅导专家，擅长将面试回答重构为 STAR 法则格式。
+
+## 候选人背景
+- 身份：${profile}
+- 目标：正在准备${scenario}的面试
+
+## 任务
+将用户提供的面试回答，用 STAR 法则重新组织为结构化版本。
+
+## 输出格式（严格遵守）
+用以下四个标题分段输出，每段 80~200 字：
+
+## Situation
+（描述背景和情境）
+
+## Task
+（明确任务目标和挑战）
+
+## Action
+（详细说明采取的行动步骤）
+
+## Result
+（量化成果和收获反思）
+
+## 要求
+1. 保留原回答的核心内容和亮点，不要凭空捏造
+2. 如果原回答缺乏具体场景，合理补充符合${scenario}风格的细节
+3. 结合候选人身份（${profile}）调整措辞和深度
+4. 每段聚焦、简洁，避免重复
+5. 使用中文回答`;
+}
