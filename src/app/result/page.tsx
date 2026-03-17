@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
+import Markdown from "react-markdown";
 import {
   ArrowLeft,
   RefreshCw,
@@ -143,8 +144,10 @@ export default function ResultPage() {
           )}
 
           {hasAnswer && (
-            <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">
-              {answer}
+            <div className="prose prose-sm prose-neutral mt-3 max-w-none leading-relaxed dark:prose-invert">
+              <Markdown>
+                {answer}
+              </Markdown>
               {isStreaming && (
                 <span className="inline-block animate-pulse text-primary">▍</span>
               )}
