@@ -81,9 +81,7 @@ export default function ResultPage() {
   };
 
   const handleUnsave = () => {
-    if (window.confirm("撤销保存将清空 STAR 优化和追问记录，确定要继续吗？")) {
-      unsave();
-    }
+    unsave();
   };
 
   // Empty state
