@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import type { Role } from "@/types/role";
 
-export type StarStatus = "idle" | "streaming" | "done" | "error";
+export type AsyncStatus = "idle" | "streaming" | "done" | "error";
+export type StarStatus = AsyncStatus;
 
 export interface StarSection {
   title: string;
@@ -12,19 +13,27 @@ interface QuestionState {
   questionId: number | null;
   question: string | null;
   roleSnapshot: Role | null;
+  parentId: number | null;
   saveStatus: "unsaved" | "saved";
 
   starRaw: string;
   starStatus: StarStatus;
   starSections: StarSection[];
 
-  startQuestion: (q: string, role: Role) => void;
+  followUps: string[];
+  followUpStatus: AsyncStatus;
+
+  startQuestion: (q: string, role: Role, parentId?: number | null) => void;
   save: () => void;
   unsave: () => void;
 
   setStarRaw: (raw: string) => void;
   setStarStatus: (status: StarStatus) => void;
   resetStar: () => void;
+
+  setFollowUps: (items: string[]) => void;
+  setFollowUpStatus: (status: AsyncStatus) => void;
+  resetFollowUps: () => void;
 }
 
 const STAR_HEADINGS = ["Situation", "Task", "Action", "Result"] as const;
@@ -57,21 +66,28 @@ export const useQuestionStore = create<QuestionState>()((set) => ({
   questionId: null,
   question: null,
   roleSnapshot: null,
+  parentId: null,
   saveStatus: "unsaved",
 
   starRaw: "",
   starStatus: "idle",
   starSections: [],
 
-  startQuestion: (question, roleSnapshot) =>
+  followUps: [],
+  followUpStatus: "idle",
+
+  startQuestion: (question, roleSnapshot, parentId = null) =>
     set({
       questionId: Date.now(),
       question,
       roleSnapshot,
+      parentId: parentId ?? null,
       saveStatus: "unsaved",
       starRaw: "",
       starStatus: "idle",
       starSections: [],
+      followUps: [],
+      followUpStatus: "idle",
     }),
 
   save: () => set({ saveStatus: "saved" }),
@@ -82,6 +98,8 @@ export const useQuestionStore = create<QuestionState>()((set) => ({
       starRaw: "",
       starStatus: "idle",
       starSections: [],
+      followUps: [],
+      followUpStatus: "idle",
     }),
 
   setStarRaw: (raw) =>
@@ -91,4 +109,11 @@ export const useQuestionStore = create<QuestionState>()((set) => ({
 
   resetStar: () =>
     set({ starRaw: "", starStatus: "idle", starSections: [] }),
+
+  setFollowUps: (items) => set({ followUps: items }),
+
+  setFollowUpStatus: (status) => set({ followUpStatus: status }),
+
+  resetFollowUps: () =>
+    set({ followUps: [], followUpStatus: "idle" }),
 }));

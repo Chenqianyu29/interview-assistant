@@ -6,6 +6,7 @@ import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
 import { StarCard } from "@/components/star-card";
+import { FollowUpList } from "@/components/follow-up-list";
 import Markdown from "react-markdown";
 import {
   ArrowLeft,
@@ -33,12 +34,20 @@ export default function ResultPage() {
   const setStarStatus = useQuestionStore((s) => s.setStarStatus);
   const resetStar = useQuestionStore((s) => s.resetStar);
 
+  const followUps = useQuestionStore((s) => s.followUps);
+  const followUpStatus = useQuestionStore((s) => s.followUpStatus);
+  const setFollowUps = useQuestionStore((s) => s.setFollowUps);
+  const setFollowUpStatus = useQuestionStore((s) => s.setFollowUpStatus);
+  const resetFollowUps = useQuestionStore((s) => s.resetFollowUps);
+  const startQuestion = useQuestionStore((s) => s.startQuestion);
+
   const [answer, setAnswer] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [regenerateCount, setRegenerateCount] = useState(0);
 
   const starAbortRef = useRef<AbortController | null>(null);
+  const followUpAbortRef = useRef<AbortController | null>(null);
 
   // Streaming effect — strict-mode safe
   useEffect(() => {
@@ -92,6 +101,7 @@ export default function ResultPage() {
 
   const handleUnsave = () => {
     starAbortRef.current?.abort();
+    followUpAbortRef.current?.abort();
     unsave();
   };
 
@@ -133,6 +143,44 @@ export default function ResultPage() {
       }
     }
   }, [question, answer, roleSnapshot, resetStar, setStarRaw, setStarStatus]);
+
+  const handleFollowUp = useCallback(async () => {
+    if (!question || !roleSnapshot || !answer) return;
+
+    followUpAbortRef.current?.abort();
+    const controller = new AbortController();
+    followUpAbortRef.current = controller;
+
+    resetFollowUps();
+    setFollowUpStatus("streaming");
+
+    try {
+      const res = await fetch("/api/follow-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, answer, role: roleSnapshot }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error(`追问生成失败 (${res.status})`);
+
+      const data = await res.json();
+      setFollowUps(data.questions);
+      setFollowUpStatus("done");
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setFollowUpStatus("error");
+      }
+    }
+  }, [question, answer, roleSnapshot, resetFollowUps, setFollowUps, setFollowUpStatus]);
+
+  const handleSelectFollowUp = useCallback(
+    (followUpQuestion: string) => {
+      if (!roleSnapshot || !questionId) return;
+      startQuestion(followUpQuestion, roleSnapshot, questionId);
+    },
+    [roleSnapshot, questionId, startQuestion],
+  );
 
   // Empty state
   if (!question || !roleSnapshot) {
@@ -243,9 +291,17 @@ export default function ResultPage() {
                 )}
                 {starStatus === "done" ? "重新 STAR" : "STAR 优化"}
               </Button>
-              <Button variant="outline" disabled={!isSaved}>
-                <MessageSquarePlus className="h-3.5 w-3.5" />
-                模拟追问
+              <Button
+                variant="outline"
+                disabled={!isSaved || followUpStatus === "streaming"}
+                onClick={handleFollowUp}
+              >
+                {followUpStatus === "streaming" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <MessageSquarePlus className="h-3.5 w-3.5" />
+                )}
+                {followUpStatus === "done" ? "重新追问" : "模拟追问"}
               </Button>
             </div>
 
@@ -267,6 +323,30 @@ export default function ResultPage() {
 
                   <div className="mt-3">
                     <StarCard sections={starSections} status={starStatus} />
+                  </div>
+                </section>
+              </>
+            )}
+
+            {/* Follow-up Section */}
+            {followUpStatus !== "idle" && (
+              <>
+                <hr className="my-6" />
+
+                <section>
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    模拟追问
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    点击任意追问，自动进入新一轮问答
+                  </p>
+
+                  <div className="mt-3">
+                    <FollowUpList
+                      items={followUps}
+                      status={followUpStatus}
+                      onSelect={handleSelectFollowUp}
+                    />
                   </div>
                 </section>
               </>

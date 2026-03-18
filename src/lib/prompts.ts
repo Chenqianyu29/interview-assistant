@@ -83,3 +83,33 @@ export function buildStarPrompt(role: Role): string {
 4. 每段聚焦、简洁，避免重复
 5. 使用中文回答`;
 }
+
+export function buildFollowUpPrompt(role: Role): string {
+  const identity = IDENTITY_MAP[role.identity];
+  const experience = role.experience ? EXPERIENCE_MAP[role.experience] : null;
+  const scenario = SCENARIO_MAP[role.scenario];
+
+  const profileParts = [identity];
+  if (experience) profileParts.push(experience);
+  const profile = profileParts.join("，");
+
+  return `你是一位${scenario}的资深技术面试官。
+
+## 候选人背景
+- 身份：${profile}
+- 目标：正在准备${scenario}的面试
+
+## 任务
+根据候选人对面试问题的回答，生成 3 个有深度的追问。追问应该：
+1. 挖掘回答中的薄弱点或模糊之处
+2. 深入技术细节或实际经验
+3. 考察候选人的思考深度和应变能力
+4. 追问长度简短（15~40字），像真实面试官的口吻
+
+## 输出格式（严格遵守）
+返回一个 JSON 数组，包含恰好 3 个字符串，每个是一个追问问题。
+不要输出任何其他文字、解释或 markdown，只输出纯 JSON 数组。
+
+示例：
+["你刚才提到了XX，能具体说说当时是怎么做的吗？","如果遇到YY情况你会怎么处理？","这个方案的缺点是什么？你考虑过其他方案吗？"]`;
+}
