@@ -48,6 +48,37 @@ export default function ResultPage() {
 
   const starAbortRef = useRef<AbortController | null>(null);
   const followUpAbortRef = useRef<AbortController | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const autoScrollRef = useRef(true);
+
+  const scrollToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+  }, []);
+
+  // 主答案流式生成时自动跟随滚动
+  useEffect(() => {
+    if (!isStreaming || !answer) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      autoScrollRef.current = distanceFromBottom < 80;
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [isStreaming, answer]);
+
+  useEffect(() => {
+    if (!isStreaming || !autoScrollRef.current) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [answer, isStreaming]);
 
   // Streaming effect — strict-mode safe
   useEffect(() => {
@@ -114,6 +145,7 @@ export default function ResultPage() {
 
     resetStar();
     setStarStatus("streaming");
+    scrollToBottom();
 
     try {
       const res = await fetch("/api/star", {
@@ -137,12 +169,13 @@ export default function ResultPage() {
       }
 
       setStarStatus("done");
+      scrollToBottom();
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setStarStatus("error");
       }
     }
-  }, [question, answer, roleSnapshot, resetStar, setStarRaw, setStarStatus]);
+  }, [question, answer, roleSnapshot, resetStar, setStarRaw, setStarStatus, scrollToBottom]);
 
   const handleFollowUp = useCallback(async () => {
     if (!question || !roleSnapshot || !answer) return;
@@ -153,6 +186,7 @@ export default function ResultPage() {
 
     resetFollowUps();
     setFollowUpStatus("streaming");
+    scrollToBottom();
 
     try {
       const res = await fetch("/api/follow-up", {
@@ -167,12 +201,13 @@ export default function ResultPage() {
       const data = await res.json();
       setFollowUps(data.questions);
       setFollowUpStatus("done");
+      scrollToBottom();
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setFollowUpStatus("error");
       }
     }
-  }, [question, answer, roleSnapshot, resetFollowUps, setFollowUps, setFollowUpStatus]);
+  }, [question, answer, roleSnapshot, resetFollowUps, setFollowUps, setFollowUpStatus, scrollToBottom]);
 
   const handleSelectFollowUp = useCallback(
     (followUpQuestion: string) => {
@@ -197,7 +232,7 @@ export default function ResultPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
+    <div ref={scrollContainerRef} className="flex flex-1 flex-col overflow-y-auto">
       <div className="mx-auto w-full max-w-2xl px-4 py-8">
         {/* Back */}
         <button
@@ -353,6 +388,8 @@ export default function ResultPage() {
             )}
           </>
         )}
+
+        <div ref={bottomRef} className="h-24" />
       </div>
     </div>
   );
