@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuestionStore } from "@/stores/question";
+import { useHistoryStore } from "@/stores/history";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
 import { StarCard } from "@/components/star-card";
@@ -19,7 +20,17 @@ import {
 } from "lucide-react";
 
 export default function ResultPage() {
+  return (
+    <Suspense>
+      <ResultContent />
+    </Suspense>
+  );
+}
+
+function ResultContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromHistory = searchParams.get("from") === "history";
 
   const questionId = useQuestionStore((s) => s.questionId);
   const question = useQuestionStore((s) => s.question);
@@ -41,10 +52,18 @@ export default function ResultPage() {
   const resetFollowUps = useQuestionStore((s) => s.resetFollowUps);
   const startQuestion = useQuestionStore((s) => s.startQuestion);
 
+  const addRecord = useHistoryStore((s) => s.addRecord);
+  const updateRecord = useHistoryStore((s) => s.updateRecord);
+  const removeRecord = useHistoryStore((s) => s.removeRecord);
+  const historyRecord = useHistoryStore((s) =>
+    questionId ? s.records.find((r) => r.id === questionId) : undefined,
+  );
+
   const [answer, setAnswer] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [regenerateCount, setRegenerateCount] = useState(0);
+  const [isHistoryView, setIsHistoryView] = useState(false);
 
   const starAbortRef = useRef<AbortController | null>(null);
   const followUpAbortRef = useRef<AbortController | null>(null);
@@ -80,9 +99,27 @@ export default function ResultPage() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [answer, isStreaming]);
 
+  // 从历史记录加载
+  useEffect(() => {
+    if (!fromHistory || !historyRecord) return;
+    setAnswer(historyRecord.answer);
+    setIsHistoryView(true);
+    save();
+    if (historyRecord.starAnswer) {
+      setStarRaw(historyRecord.starAnswer);
+      setStarStatus("done");
+    }
+    if (historyRecord.followUps.length > 0) {
+      setFollowUps(historyRecord.followUps);
+      setFollowUpStatus("done");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromHistory, questionId]);
+
   // Streaming effect — strict-mode safe
   useEffect(() => {
     if (!questionId || !question || !roleSnapshot) return;
+    if (isHistoryView) return;
 
     const controller = new AbortController();
     setAnswer("");
@@ -125,7 +162,25 @@ export default function ResultPage() {
   const hasAnswer = answer.length > 0;
   const isSaved = saveStatus === "saved";
 
+  const handleSave = useCallback(() => {
+    if (!questionId || !question || !roleSnapshot) return;
+    save();
+    addRecord({
+      id: questionId,
+      question,
+      roleSnapshot,
+      answer,
+      starAnswer: "",
+      followUps: [],
+      parentId: useQuestionStore.getState().parentId,
+      isFavorite: false,
+      category: "",
+      createdAt: Date.now(),
+    });
+  }, [questionId, question, roleSnapshot, answer, save, addRecord]);
+
   const handleRegenerate = () => {
+    setIsHistoryView(false);
     unsave();
     setRegenerateCount((c) => c + 1);
   };
@@ -133,6 +188,7 @@ export default function ResultPage() {
   const handleUnsave = () => {
     starAbortRef.current?.abort();
     followUpAbortRef.current?.abort();
+    if (questionId) removeRecord(questionId);
     unsave();
   };
 
@@ -169,13 +225,14 @@ export default function ResultPage() {
       }
 
       setStarStatus("done");
+      if (questionId) updateRecord(questionId, { starAnswer: accumulated });
       scrollToBottom();
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setStarStatus("error");
       }
     }
-  }, [question, answer, roleSnapshot, resetStar, setStarRaw, setStarStatus, scrollToBottom]);
+  }, [questionId, question, answer, roleSnapshot, resetStar, setStarRaw, setStarStatus, scrollToBottom, updateRecord]);
 
   const handleFollowUp = useCallback(async () => {
     if (!question || !roleSnapshot || !answer) return;
@@ -201,17 +258,19 @@ export default function ResultPage() {
       const data = await res.json();
       setFollowUps(data.questions);
       setFollowUpStatus("done");
+      if (questionId) updateRecord(questionId, { followUps: data.questions });
       scrollToBottom();
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         setFollowUpStatus("error");
       }
     }
-  }, [question, answer, roleSnapshot, resetFollowUps, setFollowUps, setFollowUpStatus, scrollToBottom]);
+  }, [questionId, question, answer, roleSnapshot, resetFollowUps, setFollowUps, setFollowUpStatus, scrollToBottom, updateRecord]);
 
   const handleSelectFollowUp = useCallback(
     (followUpQuestion: string) => {
       if (!roleSnapshot || !questionId) return;
+      setIsHistoryView(false);
       startQuestion(followUpQuestion, roleSnapshot, questionId);
     },
     [roleSnapshot, questionId, startQuestion],
@@ -303,7 +362,7 @@ export default function ResultPage() {
               </Button>
 
               {!isSaved ? (
-                <Button onClick={save}>
+                <Button onClick={handleSave}>
                   <Save className="h-3.5 w-3.5" />
                   确认并保存
                 </Button>
