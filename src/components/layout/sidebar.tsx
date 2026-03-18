@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHistoryStore, type QuestionRecord } from "@/stores/history";
 import { useQuestionStore } from "@/stores/question";
-import { MessageSquare, Star, Clock } from "lucide-react";
+import { MessageSquare, Star, Trash2, Clock } from "lucide-react";
 
 type Tab = "history" | "favorites";
 
@@ -13,6 +13,8 @@ export function Sidebar() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("history");
   const records = useHistoryStore((s) => s.records);
+  const toggleFavorite = useHistoryStore((s) => s.toggleFavorite);
+  const removeRecord = useHistoryStore((s) => s.removeRecord);
 
   const filtered =
     activeTab === "favorites"
@@ -27,7 +29,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r md:flex md:flex-col">
+    <aside className="hidden w-72 shrink-0 overflow-hidden border-r md:flex md:flex-col">
       {/* Tabs */}
       <div className="flex border-b">
         <button
@@ -75,20 +77,42 @@ export function Sidebar() {
         ) : (
           <div className="grid gap-0.5">
             {filtered.slice(0, 50).map((record) => (
-              <button
+              <div
                 key={record.id}
-                onClick={() => handleClick(record)}
-                className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+                className="group flex min-w-0 items-center gap-4 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
               >
-                <MessageSquare className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{record.question}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {new Date(record.createdAt).toLocaleDateString()}
-                    {record.isFavorite && " ★"}
-                  </p>
+                <button
+                  onClick={() => handleClick(record)}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{record.question}</span>
+                </button>
+
+                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    onClick={() => toggleFavorite(record.id)}
+                    className="rounded p-1 text-muted-foreground hover:text-amber-500"
+                    title={record.isFavorite ? "取消收藏" : "收藏"}
+                  >
+                    <Star
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        record.isFavorite
+                          ? "fill-amber-400 text-amber-400"
+                          : "",
+                      )}
+                    />
+                  </button>
+                  <button
+                    onClick={() => removeRecord(record.id)}
+                    className="rounded p-1 text-muted-foreground hover:text-destructive"
+                    title="删除"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
