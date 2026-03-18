@@ -33,7 +33,11 @@ export const useHistoryStore = create<HistoryState>()(
       records: [],
 
       addRecord: (record) =>
-        set((s) => ({ records: [record, ...s.records] })),
+        set((s) => ({
+          records: s.records.some((r) => r.id === record.id)
+            ? s.records
+            : [record, ...s.records],
+        })),
 
       updateRecord: (id, patch) =>
         set((s) => ({
@@ -65,6 +69,17 @@ export const useHistoryStore = create<HistoryState>()(
 
       clearAll: () => set({ records: [] }),
     }),
-    { name: "interview-copilot-history" },
+    {
+      name: "interview-copilot-history",
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const seen = new Set<number>();
+        state.records = state.records.filter((r) => {
+          if (seen.has(r.id)) return false;
+          seen.add(r.id);
+          return true;
+        });
+      },
+    },
   ),
 );
