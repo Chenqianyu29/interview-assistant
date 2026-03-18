@@ -6,6 +6,7 @@ import { useQuestionStore } from "@/stores/question";
 import { useHistoryStore } from "@/stores/history";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StarCard } from "@/components/star-card";
 import { FollowUpList } from "@/components/follow-up-list";
 import Markdown from "react-markdown";
@@ -64,6 +65,7 @@ function ResultContent() {
   const [error, setError] = useState<string | null>(null);
   const [regenerateCount, setRegenerateCount] = useState(0);
   const [isHistoryView, setIsHistoryView] = useState(false);
+  const [showUnsaveConfirm, setShowUnsaveConfirm] = useState(false);
 
   const starAbortRef = useRef<AbortController | null>(null);
   const followUpAbortRef = useRef<AbortController | null>(null);
@@ -185,7 +187,7 @@ function ResultContent() {
     setRegenerateCount((c) => c + 1);
   };
 
-  const handleUnsave = () => {
+  const doUnsave = () => {
     starAbortRef.current?.abort();
     followUpAbortRef.current?.abort();
     if (questionId) removeRecord(questionId);
@@ -367,7 +369,7 @@ function ResultContent() {
                   确认并保存
                 </Button>
               ) : (
-                <Button variant="outline" onClick={handleUnsave}>
+                <Button variant="outline" onClick={() => setShowUnsaveConfirm(true)}>
                   <Undo2 className="h-3.5 w-3.5" />
                   撤销保存
                 </Button>
@@ -450,6 +452,16 @@ function ResultContent() {
 
         <div ref={bottomRef} className="h-24" />
       </div>
+
+      <ConfirmDialog
+        open={showUnsaveConfirm}
+        onOpenChange={setShowUnsaveConfirm}
+        title="确认撤销保存？"
+        description="撤销后将清除已生成的 STAR 优化和追问内容，且从历史记录中移除。"
+        confirmText="撤销保存"
+        variant="destructive"
+        onConfirm={doUnsave}
+      />
     </div>
   );
 }

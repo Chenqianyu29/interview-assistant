@@ -6,11 +6,11 @@ import { useHistoryStore, type QuestionRecord } from "@/stores/history";
 import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
   Search,
   Star,
-  StarOff,
   Trash2,
   Tag,
   Clock,
@@ -33,6 +33,7 @@ export default function HistoryPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [taggingId, setTaggingId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let list = records;
@@ -209,11 +210,14 @@ export default function HistoryPage() {
                     className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     title={record.isFavorite ? "取消收藏" : "收藏"}
                   >
-                    {record.isFavorite ? (
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    ) : (
-                      <StarOff className="h-3.5 w-3.5" />
-                    )}
+                    <Star
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        record.isFavorite
+                          ? "fill-amber-400 text-amber-400"
+                          : "",
+                      )}
+                    />
                   </button>
                   <button
                     onClick={(e) => {
@@ -228,7 +232,7 @@ export default function HistoryPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeRecord(record.id);
+                      setDeleteId(record.id);
                     }}
                     className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                     title="删除"
@@ -276,6 +280,16 @@ export default function HistoryPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        title="确认删除？"
+        description="删除后无法恢复，确定要删除这条历史记录吗？"
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={() => { if (deleteId) removeRecord(deleteId); }}
+      />
     </div>
   );
 }

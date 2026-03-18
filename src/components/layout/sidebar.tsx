@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHistoryStore, type QuestionRecord } from "@/stores/history";
 import { useQuestionStore } from "@/stores/question";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MessageSquare, Star, Trash2, Clock } from "lucide-react";
 
 type Tab = "history" | "favorites";
@@ -12,6 +13,7 @@ type Tab = "history" | "favorites";
 export function Sidebar() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("history");
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const records = useHistoryStore((s) => s.records);
   const toggleFavorite = useHistoryStore((s) => s.toggleFavorite);
   const removeRecord = useHistoryStore((s) => s.removeRecord);
@@ -105,7 +107,7 @@ export function Sidebar() {
                     />
                   </button>
                   <button
-                    onClick={() => removeRecord(record.id)}
+                    onClick={() => setDeleteId(record.id)}
                     className="rounded p-1 text-muted-foreground hover:text-destructive"
                     title="删除"
                   >
@@ -117,6 +119,16 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        title="确认删除？"
+        description="删除后无法恢复，确定要删除这条历史记录吗？"
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={() => { if (deleteId) removeRecord(deleteId); }}
+      />
     </aside>
   );
 }
