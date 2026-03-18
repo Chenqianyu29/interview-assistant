@@ -78,9 +78,9 @@ export function Sidebar() {
               <button
                 key={record.id}
                 onClick={() => handleClick(record)}
-                className="flex items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
               >
-                <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <MessageSquare className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{record.question}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
