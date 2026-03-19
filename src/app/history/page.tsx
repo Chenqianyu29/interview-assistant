@@ -58,8 +58,8 @@ export default function HistoryPage() {
   const handleView = (record: QuestionRecord) => {
     const store = useQuestionStore.getState();
     store.startQuestion(record.question, record.roleSnapshot, record.parentId);
-    Object.assign(useQuestionStore.getState(), { questionId: record.id });
-    router.push("/result?from=history");
+    useQuestionStore.setState({ questionId: record.id });
+    router.push("/result");
   };
 
   const handleSetCategory = (id: number, cat: string) => {

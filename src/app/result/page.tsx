@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuestionStore } from "@/stores/question";
 import { useHistoryStore } from "@/stores/history";
 import { formatRole } from "@/types/role";
@@ -21,17 +21,7 @@ import {
 } from "lucide-react";
 
 export default function ResultPage() {
-  return (
-    <Suspense>
-      <ResultContent />
-    </Suspense>
-  );
-}
-
-function ResultContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const fromHistory = searchParams.get("from") === "history";
 
   const questionId = useQuestionStore((s) => s.questionId);
   const question = useQuestionStore((s) => s.question);
@@ -101,27 +91,37 @@ function ResultContent() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [answer, isStreaming]);
 
-  // 从历史记录加载
+  // 从历史记录加载（同步检查 store，不依赖 URL 参数，避免与流式 effect 的竞态）
   useEffect(() => {
-    if (!fromHistory || !historyRecord) return;
-    setAnswer(historyRecord.answer);
+    if (!questionId) return;
+    const record = useHistoryStore.getState().records.find(
+      (r) => r.id === questionId,
+    );
+    if (!record) return;
+    setAnswer(record.answer);
     setIsHistoryView(true);
     save();
-    if (historyRecord.starAnswer) {
-      setStarRaw(historyRecord.starAnswer);
+    if (record.starAnswer) {
+      setStarRaw(record.starAnswer);
       setStarStatus("done");
     }
-    if (historyRecord.followUps.length > 0) {
-      setFollowUps(historyRecord.followUps);
+    if (record.followUps.length > 0) {
+      setFollowUps(record.followUps);
       setFollowUpStatus("done");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromHistory, questionId]);
+  }, [questionId]);
 
   // Streaming effect — strict-mode safe
   useEffect(() => {
     if (!questionId || !question || !roleSnapshot) return;
     if (isHistoryView) return;
+
+    // 同步检查：如果已存在于历史记录中则跳过生成
+    const existsInHistory = useHistoryStore
+      .getState()
+      .records.some((r) => r.id === questionId);
+    if (existsInHistory) return;
 
     const controller = new AbortController();
     setAnswer("");
