@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BotMessageSquare, User } from "lucide-react";
+import { BotMessageSquare, LogOut, User } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useRoleStore } from "@/stores/role";
+import { useAuthStore } from "@/stores/auth";
 import { formatRole } from "@/types/role";
 import { RoleSelectorPanel } from "@/components/role-selector";
 
@@ -15,9 +16,17 @@ const navItems = [
 ];
 
 export function Header() {
+  const router = useRouter();
   const pathname = usePathname();
   const globalRole = useRoleStore((s) => s.globalRole);
   const setGlobalRole = useRoleStore((s) => s.setGlobalRole);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
@@ -75,10 +84,17 @@ export function Header() {
         </Popover.Root>
 
         <div className="flex items-center gap-1.5 text-sm">
-          <span className="text-muted-foreground">user</span>
+          <span className="text-muted-foreground">{user ?? "user"}</span>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <User className="h-4 w-4" />
           </div>
+          <button
+            onClick={handleLogout}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="退出登录"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </header>

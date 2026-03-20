@@ -1,0 +1,37 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+interface AuthState {
+  user: string | null;
+  isAuthenticated: boolean;
+  login: (username: string, password: string) => Promise<boolean>;
+  logout: () => void;
+}
+
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      isAuthenticated: false,
+
+      login: async (username, password) => {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        if (!res.ok) return false;
+        const { user } = await res.json();
+        set({ user, isAuthenticated: true });
+        return true;
+      },
+
+      logout: () => {
+        document.cookie =
+          "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        set({ user: null, isAuthenticated: false });
+      },
+    }),
+    { name: "interview-copilot-auth" },
+  ),
+);
