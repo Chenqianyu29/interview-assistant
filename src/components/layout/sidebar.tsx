@@ -30,12 +30,14 @@ export function Sidebar() {
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteFolderId, setDeleteFolderId] = useState<number | null>(null);
+  const [unfavoriteId, setUnfavoriteId] = useState<number | null>(null);
 
   const records = useHistoryStore((s) => s.records);
   const folders = useHistoryStore((s) => s.folders);
   const removeRecord = useHistoryStore((s) => s.removeRecord);
   const removeFolder = useHistoryStore((s) => s.removeFolder);
   const renameFolder = useHistoryStore((s) => s.renameFolder);
+  const setFavoriteFolder = useHistoryStore((s) => s.setFavoriteFolder);
 
   const handleClick = (record: QuestionRecord) => {
     const store = useQuestionStore.getState();
@@ -254,16 +256,29 @@ export function Sidebar() {
                           </p>
                         ) : (
                           getFolderRecords(folder.id).map((record) => (
-                            <button
+                            <div
                               key={record.id}
-                              onClick={() => handleClick(record)}
-                              className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                              className="group/item flex min-w-0 items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                             >
-                              <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
-                              <span className="truncate">
-                                {record.question}
-                              </span>
-                            </button>
+                              <button
+                                onClick={() => handleClick(record)}
+                                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                              >
+                                <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <span className="truncate">
+                                  {record.question}
+                                </span>
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setUnfavoriteId(record.id)
+                                }
+                                className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:text-amber-500 group-hover/item:opacity-100"
+                                title="取消收藏"
+                              >
+                                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                              </button>
+                            </div>
                           ))
                         )}
                       </div>
@@ -314,6 +329,20 @@ export function Sidebar() {
             : "destructive"
         }
         onConfirm={handleDeleteFolder}
+      />
+
+      <ConfirmDialog
+        open={unfavoriteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setUnfavoriteId(null);
+        }}
+        title="确认取消收藏？"
+        description="取消后该记录将从收藏夹中移除。"
+        confirmText="取消收藏"
+        variant="destructive"
+        onConfirm={() => {
+          if (unfavoriteId) setFavoriteFolder(unfavoriteId, null);
+        }}
       />
 
       {favoriteRecordId !== null && (
