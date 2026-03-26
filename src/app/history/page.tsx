@@ -7,6 +7,7 @@ import { useQuestionStore } from "@/stores/question";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { FavoriteDialog } from "@/components/favorite-dialog";
 import { cn } from "@/lib/utils";
 import {
   Search,
@@ -16,6 +17,7 @@ import {
   Clock,
   ChevronRight,
   X,
+  Folder,
 } from "lucide-react";
 
 type Filter = "all" | "favorites";
@@ -25,7 +27,7 @@ const CATEGORY_PRESETS = ["行为面试", "技术面试", "系统设计", "项�
 export default function HistoryPage() {
   const router = useRouter();
   const records = useHistoryStore((s) => s.records);
-  const toggleFavorite = useHistoryStore((s) => s.toggleFavorite);
+  const folders = useHistoryStore((s) => s.folders);
   const removeRecord = useHistoryStore((s) => s.removeRecord);
   const setCategory = useHistoryStore((s) => s.setCategory);
 
@@ -34,10 +36,11 @@ export default function HistoryPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [taggingId, setTaggingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [favoriteRecordId, setFavoriteRecordId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let list = records;
-    if (filter === "favorites") list = list.filter((r) => r.isFavorite);
+    if (filter === "favorites") list = list.filter((r) => r.folderId !== null);
     if (categoryFilter) list = list.filter((r) => r.category === categoryFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -54,6 +57,11 @@ export default function HistoryPage() {
     const cats = new Set(records.map((r) => r.category).filter(Boolean));
     return Array.from(cats);
   }, [records]);
+
+  const getFolderName = (folderId: number | null) => {
+    if (!folderId) return null;
+    return folders.find((f) => f.id === folderId)?.name ?? null;
+  };
 
   const handleView = (record: QuestionRecord) => {
     const store = useQuestionStore.getState();
@@ -165,131 +173,156 @@ export default function HistoryPage() {
               没有匹配的记录
             </p>
           ) : (
-            filtered.map((record) => (
-              <div
-                key={record.id}
-                className="group relative rounded-lg border p-4 transition-all hover:border-primary/30 hover:shadow-sm"
-              >
-                {/* Main clickable area */}
-                <button
-                  className="w-full text-left"
-                  onClick={() => handleView(record)}
+            filtered.map((record) => {
+              const folderName = getFolderName(record.folderId);
+              return (
+                <div
+                  key={record.id}
+                  className="group relative rounded-lg border p-4 transition-all hover:border-primary/30 hover:shadow-sm"
                 >
-                  <p className="pr-20 text-sm font-medium leading-snug">
-                    {record.question}
-                  </p>
-                  <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">
-                    {record.answer.slice(0, 120)}...
-                  </p>
-                  <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span>{formatRole(record.roleSnapshot)}</span>
-                    <span>{new Date(record.createdAt).toLocaleDateString()}</span>
-                    {record.category && (
-                      <span className="rounded-full bg-muted px-2 py-0.5">
-                        {record.category}
-                      </span>
-                    )}
-                    {record.starAnswer && (
-                      <span className="text-amber-500">STAR</span>
-                    )}
-                    {record.followUps.length > 0 && (
-                      <span className="text-blue-500">
-                        {record.followUps.length} 追问
-                      </span>
-                    )}
-                  </div>
-                </button>
-
-                {/* Actions */}
-                <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  {/* Main clickable area */}
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(record.id);
-                    }}
-                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    title={record.isFavorite ? "取消收藏" : "收藏"}
+                    className="w-full text-left"
+                    onClick={() => handleView(record)}
                   >
-                    <Star
-                      className={cn(
-                        "h-3.5 w-3.5",
-                        record.isFavorite
-                          ? "fill-amber-400 text-amber-400"
-                          : "",
+                    <p className="pr-20 text-sm font-medium leading-snug">
+                      {record.question}
+                    </p>
+                    <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">
+                      {record.answer.slice(0, 120)}...
+                    </p>
+                    <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <span>{formatRole(record.roleSnapshot)}</span>
+                      <span>
+                        {new Date(record.createdAt).toLocaleDateString()}
+                      </span>
+                      {record.category && (
+                        <span className="rounded-full bg-muted px-2 py-0.5">
+                          {record.category}
+                        </span>
                       )}
-                    />
+                      {folderName && (
+                        <span className="flex items-center gap-1 text-amber-500">
+                          <Folder className="h-3 w-3" />
+                          {folderName}
+                        </span>
+                      )}
+                      {record.starAnswer && (
+                        <span className="text-amber-500">STAR</span>
+                      )}
+                      {record.followUps.length > 0 && (
+                        <span className="text-blue-500">
+                          {record.followUps.length} 追问
+                        </span>
+                      )}
+                    </div>
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTaggingId(taggingId === record.id ? null : record.id);
-                    }}
-                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    title="分类"
-                  >
-                    <Tag className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteId(record.id);
-                    }}
-                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                    title="删除"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                  <ChevronRight className="ml-1 h-4 w-4 text-muted-foreground" />
-                </div>
 
-                {/* Category picker */}
-                {taggingId === record.id && (
-                  <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3">
-                    {CATEGORY_PRESETS.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSetCategory(record.id, cat);
-                        }}
+                  {/* Actions */}
+                  <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFavoriteRecordId(record.id);
+                      }}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title={record.folderId ? "修改收藏" : "收藏"}
+                    >
+                      <Star
                         className={cn(
-                          "rounded-full px-2.5 py-1 text-xs transition-colors",
-                          record.category === cat
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground hover:text-foreground",
+                          "h-3.5 w-3.5",
+                          record.folderId
+                            ? "fill-amber-400 text-amber-400"
+                            : "",
                         )}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                    {record.category && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSetCategory(record.id, "");
-                        }}
-                        className="rounded-full px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10"
-                      >
-                        清除分类
-                      </button>
-                    )}
+                      />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTaggingId(taggingId === record.id ? null : record.id);
+                      }}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="分类"
+                    >
+                      <Tag className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteId(record.id);
+                      }}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                      title="删除"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <ChevronRight className="ml-1 h-4 w-4 text-muted-foreground" />
                   </div>
-                )}
-              </div>
-            ))
+
+                  {/* Category picker */}
+                  {taggingId === record.id && (
+                    <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3">
+                      {CATEGORY_PRESETS.map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetCategory(record.id, cat);
+                          }}
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-xs transition-colors",
+                            record.category === cat
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                      {record.category && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetCategory(record.id, "");
+                          }}
+                          className="rounded-full px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10"
+                        >
+                          清除分类
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
 
       <ConfirmDialog
         open={deleteId !== null}
-        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
         title="确认删除？"
         description="删除后无法恢复，确定要删除这条历史记录吗？"
         confirmText="删除"
         variant="destructive"
-        onConfirm={() => { if (deleteId) removeRecord(deleteId); }}
+        onConfirm={() => {
+          if (deleteId) removeRecord(deleteId);
+        }}
       />
+
+      {favoriteRecordId !== null && (
+        <FavoriteDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setFavoriteRecordId(null);
+          }}
+          recordId={favoriteRecordId}
+        />
+      )}
     </div>
   );
 }

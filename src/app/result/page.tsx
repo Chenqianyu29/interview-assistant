@@ -175,7 +175,7 @@ export default function ResultPage() {
       starAnswer: "",
       followUps: [],
       parentId: useQuestionStore.getState().parentId,
-      isFavorite: false,
+      folderId: null,
       category: "",
       createdAt: Date.now(),
     });
