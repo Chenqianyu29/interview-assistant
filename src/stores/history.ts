@@ -115,10 +115,10 @@ export const useHistoryStore = create<HistoryState>()(
           seen.add(r.id);
           return true;
         });
-        // migrate: isFavorite → folderId
+        // migrate: old records without folderId
         state.records = state.records.map((r) => {
           if (!("folderId" in r)) {
-            return { ...r, folderId: null };
+            return { ...(r as Omit<QuestionRecord, "folderId">), folderId: null };
           }
           return r;
         });

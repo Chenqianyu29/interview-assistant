@@ -220,9 +220,6 @@ export function Sidebar() {
                             />
                             <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                             <span className="truncate">{folder.name}</span>
-                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                              {count}
-                            </span>
                           </button>
 
                           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
