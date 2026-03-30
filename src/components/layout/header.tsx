@@ -83,28 +83,19 @@ export function Header() {
           </Popover.Portal>
         </Popover.Root>
 
-        {user ? (
-          <div className="flex items-center gap-1.5 text-sm">
-            <span className="text-muted-foreground">{user}</span>
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <User className="h-4 w-4" />
-            </div>
-            <button
-              onClick={handleLogout}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              title="退出登录"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+        <div className="flex items-center gap-1.5 text-sm">
+          <span className="text-muted-foreground">{user ?? "user"}</span>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <User className="h-4 w-4" />
           </div>
-        ) : (
-          <Link
-            href="/login"
-            className="rounded-md border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          <button
+            onClick={handleLogout}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="退出登录"
           >
-            登录
-          </Link>
-        )}
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </header>
   );
