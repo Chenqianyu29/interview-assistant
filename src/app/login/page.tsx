@@ -68,11 +68,9 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full h-10 mt-4" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             登录
           </Button>
