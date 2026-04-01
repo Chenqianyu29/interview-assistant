@@ -31,6 +31,8 @@ export function Sidebar() {
   const [renameValue, setRenameValue] = useState("");
   const [deleteFolderId, setDeleteFolderId] = useState<number | null>(null);
   const [unfavoriteId, setUnfavoriteId] = useState<number | null>(null);
+  const [dragRecordId, setDragRecordId] = useState<number | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<number | null>(null);
 
   const records = useHistoryStore((s) => s.records);
   const folders = useHistoryStore((s) => s.folders);
@@ -178,7 +180,26 @@ export function Sidebar() {
                 return (
                   <div key={folder.id}>
                     {/* Folder row */}
-                    <div className="group flex min-w-0 items-center gap-1 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent">
+                    <div
+                      className={cn(
+                        "group flex min-w-0 items-center gap-1 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent",
+                        dropTargetId === folder.id && "ring-2 ring-primary/50 bg-primary/5",
+                      )}
+                      onDragOver={(e) => {
+                        if (dragRecordId === null) return;
+                        e.preventDefault();
+                        setDropTargetId(folder.id);
+                      }}
+                      onDragLeave={() => setDropTargetId(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (dragRecordId !== null) {
+                          setFavoriteFolder(dragRecordId, folder.id);
+                        }
+                        setDragRecordId(null);
+                        setDropTargetId(null);
+                      }}
+                    >
                       {isRenaming ? (
                         <div className="flex min-w-0 flex-1 items-center gap-1.5">
                           <Folder className="h-3.5 w-3.5 shrink-0 text-amber-500" />
@@ -255,7 +276,16 @@ export function Sidebar() {
                           getFolderRecords(folder.id).map((record) => (
                             <div
                               key={record.id}
-                              className="group/item flex min-w-0 items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                              draggable
+                              onDragStart={() => setDragRecordId(record.id)}
+                              onDragEnd={() => {
+                                setDragRecordId(null);
+                                setDropTargetId(null);
+                              }}
+                              className={cn(
+                                "group/item flex min-w-0 items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-grab active:cursor-grabbing",
+                                dragRecordId === record.id && "opacity-50",
+                              )}
                             >
                               <button
                                 onClick={() => handleClick(record)}
