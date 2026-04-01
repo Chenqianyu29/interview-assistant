@@ -26,35 +26,40 @@
 
 ```
 InterviewCopilot
+├── 用户认证 ✅
+│   ├── 登录/登出
+│   └── 路由守卫（中间件 + 客户端）
 ├── 核心业务流程
-│   ├── 角色设定（随时调整）
-│   ├── 问题输入
-│   ├── 回答生成
-│   ├── 确认保存
-│   ├── STAR优化
-│   ├── 模拟追问
-│   └── 收藏与分类
-├── 角色系统
+│   ├── 角色设定（全局 + 单次覆盖） ✅
+│   ├── 问题输入 ✅
+│   ├── 回答生成（流式输出） ✅
+│   ├── 确认保存 / 撤销保存（二次确认） ✅
+│   ├── STAR优化（流式输出） ✅
+│   ├── 模拟追问（追问可进入下一轮） ✅
+│   └── 收藏与分类 ✅
+├── 角色系统 ✅
 │   ├── 身份：学生 / 职场人
 │   ├── 年限：1-3年 / 3-5年 / 5年以上
 │   └── 场景：大厂 / 中厂 / 小厂 / 创业公司 / 外企
-└── 数据管理
-    ├── 题目维度存储
-    ├── 历史记录回溯
-    └── 收藏夹管理
+├── 数据管理
+│   ├── 题目维度存储（localStorage） ✅
+│   ├── 历史记录回溯 ✅
+│   ├── 收藏夹管理（文件夹 + 拖拽） ✅
+│   └── 数据库持久化（Neon Postgres） 🔜
+└── 练习模式 [二期] 🔜
 ```
 
 ### 2.2 技术栈
 
-- **前端框架**: Next.js (App Router)
-- **AI 对话 UI**: [assistant-ui](https://www.assistant-ui.com/)
-- **AI 后端**: [Vercel AI SDK](https://sdk.vercel.ai/)
-- **状态管理**: Zustand
-- **样式库**: TailwindCSS + shadcn/ui
-- **AI 服务**: OpenAI / DeepSeek API
-- **数据库**: [Neon](https://neon.tech/) (Serverless Postgres)
-- **ORM**: Drizzle ORM
+- **前端框架**: Next.js 16 (App Router) + React 19
+- **AI 后端**: [Vercel AI SDK](https://sdk.vercel.ai/) (`@ai-sdk/openai`, 当前模型 `gpt-4o-mini`)
+- **状态管理**: Zustand 5（`persist` 中间件持久化至 localStorage）
+- **样式库**: TailwindCSS 4 + shadcn/ui + @base-ui/react
+- **AI 服务**: OpenAI API（计划支持 DeepSeek）
+- **数据库**: [Neon](https://neon.tech/) (Serverless Postgres) 🔜
+- **ORM**: Drizzle ORM 🔜
 - **部署**: [Vercel](https://vercel.com/)
+- **包管理**: pnpm
 
 ---
 
@@ -116,7 +121,7 @@ InterviewCopilot
 - **操作**：用户输入具体的面试问题，例如：“为什么使用 React？”
 - **输入控件**：文本输入框（Textarea/Input）
 
-#### 3.3.2 AI 生成回答
+#### 3.3.3 AI 生成回答
 
 - **触发**：点击“生成回答”按钮
 - **逻辑**：
@@ -134,7 +139,7 @@ InterviewCopilot
   - 保存后：**解锁**“STAR 优化”和“模拟追问”功能入口。
   - 撤销保存后：**重新锁定**后续功能，清空衍生数据。
 
-#### 3.3.3 STAR 结构优化
+#### 3.3.4 STAR 结构优化
 
 - **前置条件**：用户已点击“确认并保存”主答案。
 - **触发**：在回答结果页点击“STAR 优化”按钮
@@ -145,7 +150,7 @@ InterviewCopilot
   - **Action (行动)**：采取的具体措施（代码拆分、架构调整等）
   - **Result (结果)**：量化的成果（如：加载时间减少 40%）
 
-#### 3.3.4 模拟追问（亮点）
+#### 3.3.5 模拟追问（亮点）
 
 - **前置条件**：用户已点击“确认并保存”主答案。
 - **触发**：点击“模拟追问”按钮
@@ -166,29 +171,36 @@ InterviewCopilot
 
 结构如下：
 
-```json
-{
-  "id": "uuid-v4",
-  "question": "为什么使用React？",
-  "roleSnapshot": {
-    "identity": "professional",
-    "experience": "3-5 years",
-    "scenario": "大厂"
-  },
-  "answer": "......(AI生成的常规回答)",
-  "starAnswer": "......(STAR结构化回答)",
-  "followUps": ["React性能优化怎么做？", "React和Vue区别？"],
-  "parentId": "optional-uuid-of-previous-question",
-  "isFavorite": true,
-  "category": "React核心原理",
-  "createdAt": "2026-03-11"
+```typescript
+// QuestionRecord（当前实现）
+interface QuestionRecord {
+  id: number;                    // Date.now() 时间戳作为 ID
+  question: string;
+  roleSnapshot: Role;            // { identity, experience?, scenario }
+  answer: string;
+  starAnswer: string;
+  followUps: string[];
+  parentId: number | null;       // 追问链的父题 ID
+  folderId: number | null;       // 所属收藏夹 ID（null = 未收藏）
+  category: string;              // 用户自定义分类标签
+  createdAt: number;             // 时间戳
+}
+
+// FavoriteFolder（收藏夹）
+interface FavoriteFolder {
+  id: number;
+  name: string;
+  createdAt: number;
 }
 ```
 
 #### 3.4.2 存储方式
 
-- MVP阶段：`localStorage`
-- 扩展阶段：Neon Serverless Postgres + Drizzle ORM
+- **当前（MVP）**：Zustand `persist` → `localStorage`（已实现）
+  - `interview-copilot-history`：题目记录 + 收藏夹
+  - `interview-copilot-role`：全局角色设置
+  - `interview-copilot-auth`：登录状态
+- **下一阶段**：Neon Serverless Postgres + Drizzle ORM（见第八章数据库设计方案）
 
 ---
 
@@ -196,15 +208,41 @@ InterviewCopilot
 
 ### 4.1 页面规划
 
-建议包含以下 4 个核心页面：
+| 页面 | 路由 | 状态 | 说明 |
+|------|------|------|------|
+| 登录页 | `/login` | ✅ | 用户名密码登录，已登录自动跳转首页 |
+| 首页 | `/` | ✅ | 输入问题、选择角色（单次覆盖）、⌘+Enter 提交 |
+| 回答结果页 | `/result` | ✅ | 流式回答、Markdown 渲染、保存/撤销、STAR 优化、模拟追问 |
+| 历史记录页 | `/history` | ✅ | 搜索、全部/收藏筛选、分类 chip、查看/删除/收藏 |
+| 练习模式 | `/practice` | 🔜 | Header 已有占位入口（disabled） |
 
-1.  **首页 (Home)**
-    - 功能：输入问题、选择角色、点击生成。
-2.  **回答结果页 (Result)**
-    - 功能：展示问题、AI 回答、STAR 结构卡片、模拟追问列表。
-3.  **历史记录页 (History)**
-    - 功能：展示历史问题列表，点击可回溯查看详细回答。
-4.  **练习模式 (Practice) [二期]**
+### 4.2 全局布局组件
+
+- **AppShell**：根布局容器，`/login` 裸渲染，其他页面包含 Header + Sidebar + 主内容区。未认证时客户端跳转 `/login`。
+- **Header**：Logo、导航（首页/历史/练习）、全局角色 Popover、用户信息与登出。
+- **Sidebar**：
+  - 历史 Tab：最近 50 条记录列表，点击回溯查看。
+  - 收藏 Tab：收藏夹树形结构，支持**拖拽记录到文件夹**、文件夹重命名/删除、取消收藏确认。
+
+### 4.3 页面详细
+
+1.  **登录页 (Login)** ✅
+    - 表单：用户名 + 密码。
+    - 认证：`POST /api/auth` → 校验环境变量中的 Demo 账号 → httpOnly Cookie。
+    - 路由守卫：`middleware.ts`（服务端）+ `AppShell`（客户端）双重保护。
+2.  **首页 (Home)** ✅
+    - 功能：输入问题、选择角色（显示当前角色标签，点击弹出单次覆盖选择器）、⌘/Ctrl+Enter 提交。
+    - 提交后跳转 `/result`。
+3.  **回答结果页 (Result)** ✅
+    - 流式展示 AI 回答（Markdown 渲染，自动滚动跟随）。
+    - 未保存时可"重新生成"；保存后解锁 STAR 优化和模拟追问。
+    - STAR 优化：流式生成，四段卡片展示。
+    - 模拟追问：生成 3 个追问，点击追问进入新一轮问答（自动带 `parentId`）。
+    - 从历史记录打开时不重复生成主答案。
+4.  **历史记录页 (History)** ✅
+    - 搜索过滤、全部/收藏 Tab 切换、分类标签筛选。
+    - 操作：查看详情、收藏/取消收藏（`FavoriteDialog`）、设置分类、删除（二次确认）。
+5.  **练习模式 (Practice) [二期]** 🔜
     - **出题逻辑**：基于艾宾浩斯记忆法生成出题顺序。
     - **优先级**：
         1. **收藏夹**（高优复习）
@@ -267,26 +305,203 @@ InterviewCopilot
 
 ---
 
-## 七、项目结构（推荐）
+## 七、项目结构
 
 ```
-src
-├── api
-│   └── ai.js           # AI 接口封装
-├── components
-│   ├── RoleSelector    # 角色选择组件
-│   ├── QuestionInput   # 问题输入组件
-│   ├── AnswerCard      # 回答展示卡片
-│   └── FollowUpList    # 追问列表
-├── pages
-│   ├── Home            # 首页
-│   ├── Result          # 结果页
-│   └── History         # 历史记录页
-├── store
-│   └── interviewStore  # Zustand 状态管理
-├── hooks
-│   ├── useAI           # AI 调用 Hook
-│   └── useLocalStorage # 本地存储 Hook
-└── utils
-    └── request.js      # Axios 封装
+interview-assistant/
+├── middleware.ts                    # 路由守卫（Cookie 校验）
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx              # 根布局（AppShell 包裹）
+│   │   ├── page.tsx                # 首页 /
+│   │   ├── login/page.tsx          # 登录 /login
+│   │   ├── result/page.tsx         # 结果页 /result
+│   │   ├── history/page.tsx        # 历史记录 /history
+│   │   ├── globals.css
+│   │   └── api/
+│   │       ├── auth/route.ts       # POST 登录认证
+│   │       ├── chat/route.ts       # POST 流式生成回答
+│   │       ├── star/route.ts       # POST 流式 STAR 优化
+│   │       └── follow-up/route.ts  # POST 生成追问
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── app-shell.tsx       # 全局布局容器
+│   │   │   ├── header.tsx          # 顶栏（导航 + 全局角色 + 用户）
+│   │   │   └── sidebar.tsx         # 侧栏（历史 + 收藏夹树）
+│   │   ├── role-selector.tsx       # 角色选择面板
+│   │   ├── star-card.tsx           # STAR 四段展示卡片
+│   │   ├── follow-up-list.tsx      # 追问列表
+│   │   ├── favorite-dialog.tsx     # 收藏夹选择/新建弹窗
+│   │   └── ui/
+│   │       ├── button.tsx          # 基础按钮（CVA 变体）
+│   │       └── confirm-dialog.tsx  # 通用确认弹窗
+│   ├── stores/
+│   │   ├── auth.ts                 # 登录状态（persist）
+│   │   ├── role.ts                 # 角色设置（persist globalRole）
+│   │   ├── question.ts             # 当前会话状态（非持久化）
+│   │   └── history.ts              # 历史记录 + 收藏夹（persist）
+│   ├── lib/
+│   │   ├── prompts.ts              # AI System Prompt 构建
+│   │   └── utils.ts                # 工具函数
+│   └── types/
+│       └── role.ts                 # 角色类型定义与常量
+├── .env.local                       # 环境变量（API Key、Demo 账号）
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## 八、数据库设计方案
+
+### 8.1 总体方案
+
+| 项目 | 选型 | 说明 |
+|------|------|------|
+| 数据库 | Neon Serverless Postgres | 免费层够用，Vercel 原生集成，冷启动快 |
+| ORM | Drizzle ORM | 类型安全、零运行时、Schema-first，与 Next.js Server Components 天然契合 |
+| 连接方式 | `@neondatabase/serverless` | HTTP / WebSocket 驱动，无需连接池，适配 Edge Runtime |
+| 迁移 | `drizzle-kit` | `drizzle-kit generate` + `drizzle-kit migrate` |
+
+### 8.2 ER 图
+
+```
+┌──────────┐       ┌──────────────────┐       ┌─────────────────┐
+│  users   │──1:N──│ question_records  │──N:1──│ favorite_folders │
+└──────────┘       └──────────────────┘       └─────────────────┘
+     │                     │ self-ref (parentId)
+     │              ┌──────┘
+     └──1:N──┐      │
+      ┌──────────────┐
+      │ user_settings │
+      └──────────────┘
+```
+
+### 8.3 表结构设计（Drizzle Schema）
+
+#### users — 用户表
+
+```typescript
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 50 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+```
+
+> **迁移策略**：当前 Demo 账号（环境变量硬编码）→ 数据库用户表 + bcrypt 哈希。后续可对接 OAuth（GitHub/Google）。
+
+#### user_settings — 用户设置
+
+```typescript
+export const userSettings = pgTable("user_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  globalIdentity: varchar("global_identity", { length: 20 }).notNull().default("professional"),
+  globalExperience: varchar("global_experience", { length: 10 }),
+  globalScenario: varchar("global_scenario", { length: 20 }).notNull().default("big-company"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+```
+
+> 对应当前 `useRoleStore` 的 `globalRole`，一对一关系。
+
+#### favorite_folders — 收藏夹
+
+```typescript
+export const favoriteFolders = pgTable("favorite_folders", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+```
+
+#### question_records — 题目记录
+
+```typescript
+export const questionRecords = pgTable("question_records", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  question: text("question").notNull(),
+
+  // 角色快照（保存生成时的角色设定，不随全局修改而变化）
+  roleIdentity: varchar("role_identity", { length: 20 }).notNull(),
+  roleExperience: varchar("role_experience", { length: 10 }),
+  roleScenario: varchar("role_scenario", { length: 20 }).notNull(),
+
+  answer: text("answer").notNull().default(""),
+  starAnswer: text("star_answer").notNull().default(""),
+  followUps: jsonb("follow_ups").$type<string[]>().notNull().default([]),
+
+  parentId: integer("parent_id").references((): AnyPgColumn => questionRecords.id, { onDelete: "set null" }),
+  folderId: integer("folder_id").references(() => favoriteFolders.id, { onDelete: "set null" }),
+  category: varchar("category", { length: 50 }).notNull().default(""),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+```
+
+> **设计要点**：
+> - `roleSnapshot` 拆为三个列而非 JSONB，方便按角色维度查询/统计（如"我在大厂视角下练了多少题"）。
+> - `followUps` 用 JSONB 存 `string[]`，追问内容无需独立检索。
+> - `parentId` 自引用实现追问链，`onDelete: "set null"` 防止级联删除断链。
+> - `folderId` 为 null 表示未收藏，非 null 即归属某收藏夹（替代原 `isFavorite` 布尔值）。
+
+### 8.4 索引设计
+
+```typescript
+// question_records 表索引
+export const qrUserIdx = index("qr_user_idx").on(questionRecords.userId);
+export const qrFolderIdx = index("qr_folder_idx").on(questionRecords.folderId);
+export const qrParentIdx = index("qr_parent_idx").on(questionRecords.parentId);
+export const qrCreatedIdx = index("qr_created_idx").on(questionRecords.userId, questionRecords.createdAt);
+
+// favorite_folders 表索引
+export const ffUserIdx = index("ff_user_idx").on(favoriteFolders.userId);
+```
+
+### 8.5 接入计划
+
+#### Phase 1：基础接入
+
+1. `pnpm add drizzle-orm @neondatabase/serverless` + `pnpm add -D drizzle-kit`
+2. 新增 `src/db/` 目录：
+   ```
+   src/db/
+   ├── index.ts          # Neon 连接实例
+   ├── schema.ts          # Drizzle Schema（上述表定义）
+   └── migrate.ts         # 迁移入口
+   ```
+3. `.env.local` 加入 `DATABASE_URL`（Neon 连接串）
+4. `drizzle.config.ts` 配置迁移输出目录
+
+#### Phase 2：API 路由改造
+
+| 路由 | 改造内容 |
+|------|---------|
+| `POST /api/auth` | 查 `users` 表 + bcrypt 校验 → 签发 JWT（替换明文 Cookie） |
+| `POST /api/chat` | 无变化（纯 AI 调用） |
+| `POST /api/star` | 无变化 |
+| `POST /api/follow-up` | 无变化 |
+| 🆕 `GET/POST /api/records` | CRUD 题目记录（替代 localStorage） |
+| 🆕 `GET/POST /api/folders` | CRUD 收藏夹 |
+| 🆕 `GET/PUT /api/settings` | 读写用户全局角色 |
+
+#### Phase 3：前端 Store 迁移
+
+- `useHistoryStore`：从 localStorage 读写改为调用 `/api/records` + `/api/folders`，保留 Zustand 作为客户端缓存层（乐观更新）。
+- `useRoleStore`：`globalRole` 的持久化改为 `/api/settings`。
+- `useAuthStore`：JWT 解码获取 userId，传入后续请求。
+- 数据迁移：首次登录时检测 localStorage 旧数据，一次性批量写入数据库后清除本地缓存。
+
+### 8.6 环境变量补充
+
+```bash
+# .env.local 新增
+DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/interview_copilot?sslmode=require
+JWT_SECRET=your-jwt-secret-key
 ```
