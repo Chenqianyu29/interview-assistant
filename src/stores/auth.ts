@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 interface AuthState {
   user: string | null;
+  userId: number | null;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
@@ -12,6 +13,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      userId: null,
       isAuthenticated: false,
 
       login: async (username, password) => {
@@ -21,8 +23,8 @@ export const useAuthStore = create<AuthState>()(
           body: JSON.stringify({ username, password }),
         });
         if (!res.ok) return false;
-        const { user } = await res.json();
-        set({ user, isAuthenticated: true });
+        const data = await res.json();
+        set({ user: data.user, userId: data.userId, isAuthenticated: true });
         return true;
       },
 
@@ -30,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
         document.cookie =
           "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         localStorage.removeItem("interview-copilot-auth");
-        set({ user: null, isAuthenticated: false });
+        set({ user: null, userId: null, isAuthenticated: false });
       },
     }),
     { name: "interview-copilot-auth" },

@@ -56,6 +56,7 @@ export default function ResultPage() {
   const [regenerateCount, setRegenerateCount] = useState(0);
   const [isHistoryView, setIsHistoryView] = useState(false);
   const [showUnsaveConfirm, setShowUnsaveConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const starAbortRef = useRef<AbortController | null>(null);
   const followUpAbortRef = useRef<AbortController | null>(null);
@@ -164,22 +165,26 @@ export default function ResultPage() {
   const hasAnswer = answer.length > 0;
   const isSaved = saveStatus === "saved";
 
-  const handleSave = useCallback(() => {
-    if (!questionId || !question || !roleSnapshot) return;
-    save();
-    addRecord({
-      id: questionId,
-      question,
-      roleSnapshot,
-      answer,
-      starAnswer: "",
-      followUps: [],
-      parentId: useQuestionStore.getState().parentId,
-      folderId: null,
-      category: "",
-      createdAt: Date.now(),
-    });
-  }, [questionId, question, roleSnapshot, answer, save, addRecord]);
+  const handleSave = useCallback(async () => {
+    if (!questionId || !question || !roleSnapshot || isSaving) return;
+    setIsSaving(true);
+    try {
+      const record = await addRecord({
+        question,
+        roleSnapshot,
+        answer,
+        starAnswer: "",
+        followUps: [],
+        parentId: useQuestionStore.getState().parentId,
+        folderId: null,
+        category: "",
+      });
+      useQuestionStore.setState({ questionId: record.id });
+      save();
+    } finally {
+      setIsSaving(false);
+    }
+  }, [questionId, question, roleSnapshot, answer, isSaving, save, addRecord]);
 
   const handleRegenerate = () => {
     setIsHistoryView(false);
@@ -364,9 +369,13 @@ export default function ResultPage() {
               </Button>
 
               {!isSaved ? (
-                <Button onClick={handleSave}>
-                  <Save className="h-3.5 w-3.5" />
-                  确认并保存
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  {isSaving ? "保存中…" : "确认并保存"}
                 </Button>
               ) : (
                 <Button variant="outline" onClick={() => setShowUnsaveConfirm(true)}>

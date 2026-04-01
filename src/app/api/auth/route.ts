@@ -1,21 +1,41 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { compareSync } from "bcryptjs";
+import { db } from "@/db";
+import { users, userSettings } from "@/db/schema";
+import { signJwt, authCookieOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const { username, password } = await req.json();
 
-  if (
-    username !== process.env.DEMO_USER ||
-    password !== process.env.DEMO_PASSWORD
-  ) {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+
+  if (!user || !compareSync(password, user.passwordHash)) {
     return NextResponse.json({ error: "用户名或密码错误" }, { status: 401 });
   }
 
-  const res = NextResponse.json({ user: username });
-  res.cookies.set("auth-token", username, {
-    httpOnly: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-    sameSite: "lax",
+  const [settings] = await db
+    .select()
+    .from(userSettings)
+    .where(eq(userSettings.userId, user.id))
+    .limit(1);
+
+  const token = await signJwt({ userId: user.id, username: user.username });
+  const res = NextResponse.json({
+    user: user.username,
+    userId: user.id,
+    settings: settings
+      ? {
+          globalIdentity: settings.globalIdentity,
+          globalExperience: settings.globalExperience,
+          globalScenario: settings.globalScenario,
+        }
+      : null,
   });
+  res.cookies.set(authCookieOptions(token));
   return res;
 }

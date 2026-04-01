@@ -64,10 +64,10 @@ export function FavoriteDialog({
     onOpenChange(false);
   }, [recordId, setFavoriteFolder, onOpenChange]);
 
-  const handleCreateFolder = useCallback(() => {
+  const handleCreateFolder = useCallback(async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    const id = addFolder(trimmed);
+    const id = await addFolder(trimmed);
     setSelectedId(id);
     setIsCreating(false);
     setNewName("");

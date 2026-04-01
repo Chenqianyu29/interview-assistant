@@ -65,9 +65,9 @@ export function Sidebar() {
     setRenameValue("");
   };
 
-  const handleDeleteFolder = () => {
+  const handleDeleteFolder = async () => {
     if (!deleteFolderId) return;
-    const ok = removeFolder(deleteFolderId);
+    const ok = await removeFolder(deleteFolderId);
     if (!ok) return;
     if (expandedFolderId === deleteFolderId) setExpandedFolderId(null);
   };
