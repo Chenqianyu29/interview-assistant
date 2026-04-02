@@ -42,10 +42,11 @@ InterviewCopilot
 │   ├── 年限：1-3年 / 3-5年 / 5年以上
 │   └── 场景：大厂 / 中厂 / 小厂 / 创业公司 / 外企
 ├── 数据管理
-│   ├── 题目维度存储（localStorage） ✅
+│   ├── 题目 / 收藏夹 / 全局角色 → Neon Postgres（API） ✅
+│   ├── 客户端 Zustand 内存缓存 + 乐观更新 ✅
 │   ├── 历史记录回溯 ✅
 │   ├── 收藏夹管理（文件夹 + 拖拽） ✅
-│   └── 数据库持久化（Neon Postgres） 🔜
+│   └── 登录态 localStorage（Zustand persist，与 Cookie 配合） ✅
 └── 练习模式 [二期] 🔜
 ```
 
@@ -53,11 +54,12 @@ InterviewCopilot
 
 - **前端框架**: Next.js 16 (App Router) + React 19
 - **AI 后端**: [Vercel AI SDK](https://sdk.vercel.ai/) (`@ai-sdk/openai`, 当前模型 `gpt-4o-mini`)
-- **状态管理**: Zustand 5（`persist` 中间件持久化至 localStorage）
+- **状态管理**: Zustand 5；业务数据以服务端为准，登录后拉取；`persist` 仅用于登录态等少量键
 - **样式库**: TailwindCSS 4 + shadcn/ui + @base-ui/react
 - **AI 服务**: OpenAI API（计划支持 DeepSeek）
-- **数据库**: [Neon](https://neon.tech/) (Serverless Postgres) 🔜
-- **ORM**: Drizzle ORM 🔜
+- **数据库**: [Neon](https://neon.tech/) Serverless Postgres ✅
+- **ORM**: Drizzle ORM ✅（`src/db/schema.ts` + `drizzle-kit push`）
+- **认证**: 登录后 httpOnly Cookie 存 JWT（`jose`），中间件校验
 - **部署**: [Vercel](https://vercel.com/)
 - **包管理**: pnpm
 
@@ -172,9 +174,9 @@ InterviewCopilot
 结构如下：
 
 ```typescript
-// QuestionRecord（当前实现）
+// QuestionRecord（前端模型；与 DB 行映射：角色快照拆列存库，接口返回后组装为 roleSnapshot）
 interface QuestionRecord {
-  id: number;                    // Date.now() 时间戳作为 ID
+  id: number;                    // 数据库 serial 主键
   question: string;
   roleSnapshot: Role;            // { identity, experience?, scenario }
   answer: string;
@@ -182,25 +184,26 @@ interface QuestionRecord {
   followUps: string[];
   parentId: number | null;       // 追问链的父题 ID
   folderId: number | null;       // 所属收藏夹 ID（null = 未收藏）
-  category: string;              // 用户自定义分类标签
-  createdAt: number;             // 时间戳
+  category: string;
+  createdAt: string;             // ISO 时间字符串（来自 Postgres timestamp）
 }
 
 // FavoriteFolder（收藏夹）
 interface FavoriteFolder {
   id: number;
   name: string;
-  createdAt: number;
+  createdAt: string;             // ISO 时间字符串
 }
 ```
 
 #### 3.4.2 存储方式
 
-- **当前（MVP）**：Zustand `persist` → `localStorage`（已实现）
-  - `interview-copilot-history`：题目记录 + 收藏夹
-  - `interview-copilot-role`：全局角色设置
-  - `interview-copilot-auth`：登录状态
-- **下一阶段**：Neon Serverless Postgres + Drizzle ORM（见第八章数据库设计方案）
+- **服务端持久化（当前）**：Neon Postgres + Drizzle；经 Next.js Route Handlers 读写。
+- **客户端**：
+  - `useHistoryStore`：内存缓存，增删改通过 `/api/records`、`/api/folders` 同步数据库（乐观更新）。
+  - `useRoleStore`：Header 修改全局角色时 `PUT /api/settings`；`AppShell` 挂载后 `GET /api/settings` 与本地 `persist` 对齐。
+  - `useAuthStore`：`persist` → `interview-copilot-auth`（用户名、`userId`、登录标记）；会话以 httpOnly JWT Cookie 为准。
+- **可选后续**：旧版纯 localStorage 历史数据的一次性导入脚本（未实现，见 8.7）。
 
 ---
 
@@ -309,7 +312,8 @@ interface FavoriteFolder {
 
 ```
 interview-assistant/
-├── middleware.ts                    # 路由守卫（Cookie 校验）
+├── drizzle.config.ts                # Drizzle Kit 配置（读 DATABASE_URL）
+├── middleware.ts                    # JWT 校验；页面重定向 / API 401
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx              # 根布局（AppShell 包裹）
@@ -319,10 +323,19 @@ interview-assistant/
 │   │   ├── history/page.tsx        # 历史记录 /history
 │   │   ├── globals.css
 │   │   └── api/
-│   │       ├── auth/route.ts       # POST 登录认证
+│   │       ├── auth/route.ts       # POST 登录（DB + bcrypt + JWT Cookie）
+│   │       ├── records/route.ts    # GET 列表 / POST 新建
+│   │       ├── records/[id]/route.ts  # PATCH / DELETE
+│   │       ├── folders/route.ts    # GET / POST
+│   │       ├── folders/[id]/route.ts  # PATCH / DELETE
+│   │       ├── settings/route.ts   # GET / PUT 全局角色
 │   │       ├── chat/route.ts       # POST 流式生成回答
 │   │       ├── star/route.ts       # POST 流式 STAR 优化
 │   │       └── follow-up/route.ts  # POST 生成追问
+│   ├── db/
+│   │   ├── index.ts                # Neon HTTP + drizzle 实例
+│   │   ├── schema.ts               # 表定义
+│   │   └── seed.ts                 # 种子用户（pnpm db:seed）
 │   ├── components/
 │   │   ├── layout/
 │   │   │   ├── app-shell.tsx       # 全局布局容器
@@ -337,16 +350,17 @@ interview-assistant/
 │   │       └── confirm-dialog.tsx  # 通用确认弹窗
 │   ├── stores/
 │   │   ├── auth.ts                 # 登录状态（persist）
-│   │   ├── role.ts                 # 角色设置（persist globalRole）
+│   │   ├── role.ts                 # 全局/覆盖角色；写库 + persist 辅助
 │   │   ├── question.ts             # 当前会话状态（非持久化）
-│   │   └── history.ts              # 历史记录 + 收藏夹（persist）
+│   │   └── history.ts              # 历史 + 收藏夹（内存 + API 同步）
 │   ├── lib/
+│   │   ├── auth.ts                 # JWT 签发/校验（jose）
 │   │   ├── prompts.ts              # AI System Prompt 构建
 │   │   └── utils.ts                # 工具函数
 │   └── types/
 │       └── role.ts                 # 角色类型定义与常量
-├── .env.local                       # 环境变量（API Key、Demo 账号）
-├── package.json
+├── .env.local                       # DATABASE_URL、JWT_SECRET、OpenAI、DEMO_* 等
+├── package.json                   # 含 db:push / db:seed / db:generate
 └── tsconfig.json
 ```
 
@@ -354,14 +368,26 @@ interview-assistant/
 
 ## 八、数据库设计方案
 
+### 8.0 落地状态（已实现）
+
+| 项 | 说明 |
+|----|------|
+| 连接 | `src/db/index.ts`：`neon()` + `drizzle-orm/neon-http` |
+| Schema | `src/db/schema.ts`：`users`、`user_settings`、`favorite_folders`、`question_records` + 索引 |
+| 建表 | `pnpm db:push`（`drizzle-kit push`，依赖环境变量 `DATABASE_URL`） |
+| 种子用户 | `pnpm db:seed`（`src/db/seed.ts`，`DEMO_USER` / `DEMO_PASSWORD` 与 `.env.local` 一致） |
+| 业务 API | `/api/records`、`/api/folders`、`/api/settings`；`getCurrentUser()` 读 Cookie JWT |
+| 登录 | `POST /api/auth`：查库 + `bcryptjs` 比对 → `jose` 签发 JWT → httpOnly Cookie |
+| 中间件 | `middleware.ts`：`verifyJwt`；非 `/login`、`/api/auth` 需有效令牌；`/api/*` 失败返回 401 JSON |
+
 ### 8.1 总体方案
 
 | 项目 | 选型 | 说明 |
 |------|------|------|
 | 数据库 | Neon Serverless Postgres | 免费层够用，Vercel 原生集成，冷启动快 |
 | ORM | Drizzle ORM | 类型安全、零运行时、Schema-first，与 Next.js Server Components 天然契合 |
-| 连接方式 | `@neondatabase/serverless` | HTTP / WebSocket 驱动，无需连接池，适配 Edge Runtime |
-| 迁移 | `drizzle-kit` | `drizzle-kit generate` + `drizzle-kit migrate` |
+| 连接方式 | `@neondatabase/serverless` | HTTP 驱动（`drizzle-orm/neon-http`），适合 Serverless 路由 |
+| 迁移 | `drizzle-kit` | 当前以 `pnpm db:push` 同步 schema；亦可 `pnpm db:generate` 生成 SQL 迁移文件后自行 migrate |
 
 ### 8.2 ER 图
 
@@ -390,7 +416,7 @@ export const users = pgTable("users", {
 });
 ```
 
-> **迁移策略**：当前 Demo 账号（环境变量硬编码）→ 数据库用户表 + bcrypt 哈希。后续可对接 OAuth（GitHub/Google）。
+> **现状**：Demo 账号由 `pnpm db:seed` 写入 `users` 表（bcrypt）；登录走 DB 校验。后续可扩展注册 / OAuth（GitHub/Google）。
 
 #### user_settings — 用户设置
 
@@ -464,44 +490,51 @@ export const qrCreatedIdx = index("qr_created_idx").on(questionRecords.userId, q
 export const ffUserIdx = index("ff_user_idx").on(favoriteFolders.userId);
 ```
 
-### 8.5 接入计划
+### 8.5 接入计划（对照实现）
 
-#### Phase 1：基础接入
+以下三节为原计划；**当前代码已完成 Phase 1～3**，仅「旧 localStorage 批量导入」未做。
 
-1. `pnpm add drizzle-orm @neondatabase/serverless` + `pnpm add -D drizzle-kit`
-2. 新增 `src/db/` 目录：
-   ```
-   src/db/
-   ├── index.ts          # Neon 连接实例
-   ├── schema.ts          # Drizzle Schema（上述表定义）
-   └── migrate.ts         # 迁移入口
-   ```
-3. `.env.local` 加入 `DATABASE_URL`（Neon 连接串）
-4. `drizzle.config.ts` 配置迁移输出目录
+#### Phase 1：基础接入 ✅
 
-#### Phase 2：API 路由改造
+1. 依赖：`drizzle-orm`、`@neondatabase/serverless`、`drizzle-kit`（dev）、`tsx`（dev，跑 seed）
+2. `src/db/index.ts`、`schema.ts`、`seed.ts`；根目录 `drizzle.config.ts`
+3. `.env.local`：`DATABASE_URL`、`JWT_SECRET`
+4. 首次 / 变更 schema：`pnpm db:push`；种子：`pnpm db:seed`
 
-| 路由 | 改造内容 |
-|------|---------|
-| `POST /api/auth` | 查 `users` 表 + bcrypt 校验 → 签发 JWT（替换明文 Cookie） |
-| `POST /api/chat` | 无变化（纯 AI 调用） |
-| `POST /api/star` | 无变化 |
-| `POST /api/follow-up` | 无变化 |
-| 🆕 `GET/POST /api/records` | CRUD 题目记录（替代 localStorage） |
-| 🆕 `GET/POST /api/folders` | CRUD 收藏夹 |
-| 🆕 `GET/PUT /api/settings` | 读写用户全局角色 |
+#### Phase 2：API 路由 ✅
 
-#### Phase 3：前端 Store 迁移
+| 路由 | 状态 |
+|------|------|
+| `POST /api/auth` | ✅ DB + bcrypt + JWT Cookie；响应含 `userId`、可选 `settings` |
+| `POST /api/chat` | ✅ 无 DB（仍依赖 Cookie 通过中间件） |
+| `POST /api/star` | ✅ 同上 |
+| `POST /api/follow-up` | ✅ 同上 |
+| `GET` / `POST /api/records` | ✅ |
+| `PATCH` / `DELETE /api/records/[id]` | ✅ |
+| `GET` / `POST /api/folders` | ✅ |
+| `PATCH` / `DELETE /api/folders/[id]` | ✅（非空夹删除返回 409） |
+| `GET` / `PUT /api/settings` | ✅（无行时 GET 返回默认角色，PUT upsert） |
 
-- `useHistoryStore`：从 localStorage 读写改为调用 `/api/records` + `/api/folders`，保留 Zustand 作为客户端缓存层（乐观更新）。
-- `useRoleStore`：`globalRole` 的持久化改为 `/api/settings`。
-- `useAuthStore`：JWT 解码获取 userId，传入后续请求。
-- 数据迁移：首次登录时检测 localStorage 旧数据，一次性批量写入数据库后清除本地缓存。
+#### Phase 3：前端 Store ✅
 
-### 8.6 环境变量补充
+- `useHistoryStore`：调用上述 records / folders API，Zustand 作内存缓存与乐观更新；**不再** `persist` 历史与收藏夹。
+- `useRoleStore`：`setGlobalRole` 写 `/api/settings`；`AppShell` 登录后 `GET /api/settings` + `syncGlobalRole`。
+- `useAuthStore`：持久化用户名与 `userId`；鉴权以 httpOnly JWT 为准。
+
+### 8.6 环境变量（必填）
 
 ```bash
-# .env.local 新增
-DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/interview_copilot?sslmode=require
-JWT_SECRET=your-jwt-secret-key
+# .env.local
+DATABASE_URL=postgresql://...@....neon.tech/neondb?sslmode=require
+JWT_SECRET=强随机字符串（生产环境务必更换）
+# 仍可与种子脚本共用：
+DEMO_USER=demo
+DEMO_PASSWORD=demo123
 ```
+
+> **注意**：`drizzle-kit push` / `pnpm db:push` 需在 shell 中导出 `DATABASE_URL`，或借助 `dotenv` 工具加载 `.env.local`（Next 开发时由框架自动加载，CLI 不一定读取）。
+
+### 8.7 可选后续
+
+- **旧数据迁移**：检测 `localStorage` 中历史版本 key（如 `interview-copilot-history`），登录后批量 `POST /api/records` / `POST /api/folders` 后清除，避免双源。
+- **正式用户注册**：新增注册 API + 邮箱校验等（当前仅种子用户）。
