@@ -205,6 +205,10 @@ interface FavoriteFolder {
   - `useAuthStore`：`persist` → `interview-copilot-auth`（用户名、`userId`、登录标记）；会话以 httpOnly JWT Cookie 为准。
 - **可选后续**：旧版纯 localStorage 历史数据的一次性导入脚本（未实现，见 8.7）。
 
+#### 3.4.3 历史记录管理
+
+历史记录管理：**题目记录与收藏夹（含收藏归属）持久化在 Neon Postgres**，经 Next.js API（`GET`/`POST` `/api/records`，`GET`/`POST` `/api/folders`，以及对单条记录的 `PATCH`/`DELETE`）读写；客户端 `useHistoryStore` 在登录后拉取列表并**仅在内存中缓存**，配合乐观更新与接口回写，**不再使用 Zustand `persist` 将题目写入 localStorage**。收藏通过记录上的 `folderId` 关联 `favorite_folders` 表实现。用户从历史页、侧栏等入口再次打开**已保存且已在库中**的题目时，用该条记录的已存字段（主答、STAR、追问等）hydrate 结果页，**不重新调用** `/api/chat` 流式生成主答案；仅对新问题或未入库会话才走 AI 生成。
+
 ---
 
 ## 四、页面设计
@@ -231,7 +235,7 @@ interface FavoriteFolder {
 
 1.  **登录页 (Login)** ✅
     - 表单：用户名 + 密码。
-    - 认证：`POST /api/auth` → 校验环境变量中的 Demo 账号 → httpOnly Cookie。
+    - 认证：`POST /api/auth` → 查库校验用户名密码（bcrypt）→ 签发 JWT → httpOnly Cookie。
     - 路由守卫：`middleware.ts`（服务端）+ `AppShell`（客户端）双重保护。
 2.  **首页 (Home)** ✅
     - 功能：输入问题、选择角色（显示当前角色标签，点击弹出单次覆盖选择器）、⌘/Ctrl+Enter 提交。
@@ -241,7 +245,7 @@ interface FavoriteFolder {
     - 未保存时可"重新生成"；保存后解锁 STAR 优化和模拟追问。
     - STAR 优化：流式生成，四段卡片展示。
     - 模拟追问：生成 3 个追问，点击追问进入新一轮问答（自动带 `parentId`）。
-    - 从历史记录打开时不重复生成主答案。
+    - 从历史 / 侧栏打开已入库记录时直接展示库中主答与衍生内容，不调用 `/api/chat`（见 3.4.3）。
 4.  **历史记录页 (History)** ✅
     - 搜索过滤、全部/收藏 Tab 切换、分类标签筛选。
     - 操作：查看详情、收藏/取消收藏（`FavoriteDialog`）、设置分类、删除（二次确认）。
