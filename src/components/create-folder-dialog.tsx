@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHistoryStore } from "@/stores/history";
 import { Button } from "@/components/ui/button";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Loader2 } from "lucide-react";
 
 interface CreateFolderDialogProps {
   open: boolean;
@@ -20,10 +20,14 @@ export function CreateFolderDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const addFolder = useHistoryStore((s) => s.addFolder);
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
     if (open) {
       setName("");
+      setLoading(false);
+      submitLockRef.current = false;
       queueMicrotask(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -31,18 +35,25 @@ export function CreateFolderDialog({
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key === "Escape" && !loading) onOpenChange(false);
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onOpenChange]);
+  }, [open, onOpenChange, loading]);
 
   const handleCreate = useCallback(async () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    const id = await addFolder(trimmed);
-    onCreated?.(id);
-    onOpenChange(false);
+    if (!trimmed || submitLockRef.current) return;
+    submitLockRef.current = true;
+    setLoading(true);
+    try {
+      const id = await addFolder(trimmed);
+      onCreated?.(id);
+      onOpenChange(false);
+    } finally {
+      submitLockRef.current = false;
+      setLoading(false);
+    }
   }, [name, addFolder, onCreated, onOpenChange]);
 
   if (!open) return null;
@@ -52,6 +63,7 @@ export function CreateFolderDialog({
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
       onClick={(e) => {
+        if (loading) return;
         if (e.target === overlayRef.current) onOpenChange(false);
       }}
     >
@@ -63,12 +75,13 @@ export function CreateFolderDialog({
             ref={inputRef}
             type="text"
             value={name}
+            disabled={loading}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void handleCreate();
+              if (e.key === "Enter" && !loading) void handleCreate();
             }}
             placeholder="收藏夹名称"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">
@@ -79,8 +92,20 @@ export function CreateFolderDialog({
           >
             取消
           </Button>
-          <Button size="sm" onClick={() => void handleCreate()} disabled={!name.trim()}>
-            创建
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => void handleCreate()}
+            disabled={!name.trim() || loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                创建中…
+              </>
+            ) : (
+              "创建"
+            )}
           </Button>
         </div>
       </div>
