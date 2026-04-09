@@ -98,9 +98,68 @@ export function FavoriteDialog({
       }}
     >
       <div className="mx-4 w-full max-w-xs rounded-xl border bg-popover p-4 shadow-lg animate-in zoom-in-95 duration-150">
-        <h3 className="text-sm font-semibold">
-          {isFavorited ? "修改收藏夹" : "添加到收藏夹"}
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">
+            {isFavorited ? "修改收藏夹" : "添加到收藏夹"}
+          </h3>
+          {!isCreating ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+              disabled={folderSubmitting}
+              onClick={() => setIsCreating(true)}
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              新建收藏夹
+            </Button>
+          ) : (
+            <button
+              type="button"
+              disabled={folderSubmitting}
+              onClick={() => setIsCreating(false)}
+              className="shrink-0 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            >
+              取消
+            </button>
+          )}
+        </div>
+
+        {isCreating && (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-1.5">
+            <FolderPlus className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={newName}
+              disabled={folderSubmitting}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !folderSubmitting) void handleCreateFolder();
+                if (e.key === "Escape" && !folderSubmitting) setIsCreating(false);
+              }}
+              placeholder="收藏夹名称"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 shrink-0 gap-1 px-2 text-xs"
+              onClick={() => void handleCreateFolder()}
+              disabled={!newName.trim() || folderSubmitting}
+            >
+              {folderSubmitting ? (
+                <>
+                  <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                  创建中…
+                </>
+              ) : (
+                "创建"
+              )}
+            </Button>
+          </div>
+        )}
 
         <div className="mt-3 max-h-48 space-y-1 overflow-y-auto">
           {folders.length === 0 && !isCreating && (
@@ -129,51 +188,6 @@ export function FavoriteDialog({
               )}
             </button>
           ))}
-
-          {isCreating ? (
-            <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5">
-              <FolderPlus className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={newName}
-                disabled={folderSubmitting}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !folderSubmitting) void handleCreateFolder();
-                  if (e.key === "Escape" && !folderSubmitting) setIsCreating(false);
-                }}
-                placeholder="收藏夹名称"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-2 text-xs"
-                onClick={() => void handleCreateFolder()}
-                disabled={!newName.trim() || folderSubmitting}
-              >
-                {folderSubmitting ? (
-                  <>
-                    <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                    创建中…
-                  </>
-                ) : (
-                  "创建"
-                )}
-              </Button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              disabled={folderSubmitting}
-              onClick={() => setIsCreating(true)}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-            >
-              <FolderPlus className="h-4 w-4" />
-              新建收藏夹
-            </button>
-          )}
         </div>
 
         <div className="mt-4 flex items-center gap-2">
