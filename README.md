@@ -36,6 +36,7 @@ InterviewCopilot
 │   ├── 确认保存 / 撤销保存（二次确认） ✅
 │   ├── STAR优化（流式输出） ✅
 │   ├── 模拟追问（追问可进入下一轮） ✅
+│   ├── 离开结果页确认（主答案未生成 / 未保存） ✅
 │   └── 收藏与分类 ✅
 ├── 角色系统 ✅
 │   ├── 身份：学生 / 职场人
@@ -45,7 +46,7 @@ InterviewCopilot
 │   ├── 题目 / 收藏夹 / 全局角色 → Neon Postgres（API） ✅
 │   ├── 客户端 Zustand 内存缓存 + 乐观更新 ✅
 │   ├── 历史记录回溯 ✅
-│   ├── 收藏夹管理（文件夹 + 拖拽） ✅
+│   ├── 收藏夹管理（文件夹 + 拖拽 + 侧栏新建收藏夹） ✅
 │   └── 登录态 localStorage（Zustand persist，与 Cookie 配合） ✅
 └── 练习模式 [二期] 🔜
 ```
@@ -202,12 +203,8 @@ interface FavoriteFolder {
 - **客户端**：
   - `useHistoryStore`：内存缓存，增删改通过 `/api/records`、`/api/folders` 同步数据库（乐观更新）。
   - `useRoleStore`：Header 修改全局角色时 `PUT /api/settings`；`AppShell` 挂载后 `GET /api/settings` 与本地 `persist` 对齐。
-  - `useAuthStore`：`persist` → `interview-copilot-auth`（用户名、`userId`、登录标记）；会话以 httpOnly JWT Cookie 为准。
+  - `useAuthStore`：`persist` → `interview-copilot-auth`（用户名、`userId`、登录标记）；会话以 httpOnly JWT Cookie 为准；与 persist 不一致时（如 Cookie 失效）接口 401 会清本地登录态并跳转 `/login`。
 - **可选后续**：旧版纯 localStorage 历史数据的一次性导入脚本（未实现，见 8.7）。
-
-#### 3.4.3 历史记录管理
-
-历史记录管理：**题目记录与收藏夹（含收藏归属）持久化在 Neon Postgres**，经 Next.js API（`GET`/`POST` `/api/records`，`GET`/`POST` `/api/folders`，以及对单条记录的 `PATCH`/`DELETE`）读写；客户端 `useHistoryStore` 在登录后拉取列表并**仅在内存中缓存**，配合乐观更新与接口回写，**不再使用 Zustand `persist` 将题目写入 localStorage**。收藏通过记录上的 `folderId` 关联 `favorite_folders` 表实现。用户从历史页、侧栏等入口再次打开**已保存且已在库中**的题目时，用该条记录的已存字段（主答、STAR、追问等）hydrate 结果页，**不重新调用** `/api/chat` 流式生成主答案；仅对新问题或未入库会话才走 AI 生成。
 
 ---
 
@@ -228,8 +225,9 @@ interface FavoriteFolder {
 - **AppShell**：根布局容器，`/login` 裸渲染，其他页面包含 Header + Sidebar + 主内容区。未认证时客户端跳转 `/login`。
 - **Header**：Logo、导航（首页/历史/练习）、全局角色 Popover、用户信息与登出。
 - **Sidebar**：
-  - 历史 Tab：最近 50 条记录列表，点击回溯查看。
-  - 收藏 Tab：收藏夹树形结构，支持**拖拽记录到文件夹**、文件夹重命名/删除、取消收藏确认。
+  - 历史 Tab：最近 50 条记录列表，点击回溯查看；在结果页正在查看的记录与列表项 `questionId` 一致时**浅底色高亮**（无边框）。
+  - 收藏 Tab：收藏夹树形结构，支持**拖拽记录到文件夹**、文件夹重命名/删除、取消收藏确认；顶部**全宽「新建收藏夹」**打开弹窗创建；创建中按钮 **loading** 防重复提交；收藏夹内记录同样在结果页打开时高亮。
+  - **添加到收藏**弹窗（`FavoriteDialog`）：**「新建收藏夹」** 位于弹窗右上角，创建流程带 loading。
 
 ### 4.3 页面详细
 
@@ -239,13 +237,14 @@ interface FavoriteFolder {
     - 路由守卫：`middleware.ts`（服务端）+ `AppShell`（客户端）双重保护。
 2.  **首页 (Home)** ✅
     - 功能：输入问题、选择角色（显示当前角色标签，点击弹出单次覆盖选择器）、⌘/Ctrl+Enter 提交。
-    - 提交后跳转 `/result`。
+    - 提交后跳转 `/result`；若当前已在结果页且主答案未生成完毕或未保存，跳转前走**离开确认**（与结果页规则一致）。
 3.  **回答结果页 (Result)** ✅
     - 流式展示 AI 回答（Markdown 渲染，自动滚动跟随）。
     - 未保存时可"重新生成"；保存后解锁 STAR 优化和模拟追问。
     - STAR 优化：流式生成，四段卡片展示。
     - 模拟追问：生成 3 个追问，点击追问进入新一轮问答（自动带 `parentId`）。
     - 从历史 / 侧栏打开已入库记录时直接展示库中主答与衍生内容，不调用 `/api/chat`（见 3.4.3）。
+    - **离开页确认**（`NavigationGuardProvider`）：主答案**仍在流式生成**时离开 → 提示「答案未生成完毕」：取消 / 确认离开；主答案**已生成但未保存**（有正文）时离开 → 提示「答案未保存」：取消 / 直接离开 / **保存并离开**（写入历史后跳转）；站内链接（含顶栏 Logo）、侧栏点其他记录、登出、返回首页等统一拦截；刷新或关闭标签页用 `beforeunload` 提示；`fetch` 对需登录接口使用 `credentials: 'include'`。
 4.  **历史记录页 (History)** ✅
     - 搜索过滤、全部/收藏 Tab 切换、分类标签筛选。
     - 操作：查看详情、收藏/取消收藏（`FavoriteDialog`）、设置分类、删除（二次确认）。
@@ -349,6 +348,9 @@ interview-assistant/
 │   │   ├── star-card.tsx           # STAR 四段展示卡片
 │   │   ├── follow-up-list.tsx      # 追问列表
 │   │   ├── favorite-dialog.tsx     # 收藏夹选择/新建弹窗
+│   │   ├── create-folder-dialog.tsx  # 侧栏新建收藏夹弹窗
+│   │   ├── leave-result-dialog.tsx   # 离开结果页确认（两档文案与按钮）
+│   │   ├── navigation-guard.tsx      # 离开确认拦截 + tryNavigate 上下文
 │   │   └── ui/
 │   │       ├── button.tsx          # 基础按钮（CVA 变体）
 │   │       └── confirm-dialog.tsx  # 通用确认弹窗
