@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useHistoryStore, type QuestionRecord } from "@/stores/history";
 import { useQuestionStore } from "@/stores/question";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,12 @@ export function Sidebar() {
   const [dragRecordId, setDragRecordId] = useState<number | null>(null);
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
+
+  const pathname = usePathname();
+  const activeQuestionId = useQuestionStore((s) => s.questionId);
+  const isResultPage = pathname === "/result";
+  const isRecordActive = (id: number) =>
+    isResultPage && activeQuestionId !== null && activeQuestionId === id;
 
   const records = useHistoryStore((s) => s.records);
   const folders = useHistoryStore((s) => s.folders);
@@ -132,13 +138,27 @@ export function Sidebar() {
               {records.slice(0, 50).map((record) => (
                 <div
                   key={record.id}
-                  className="group flex min-w-0 items-center gap-4 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
+                  className={cn(
+                    "group flex min-w-0 items-center gap-4 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent",
+                    isRecordActive(record.id) && "bg-primary/5",
+                  )}
                 >
                   <button
+                    type="button"
                     onClick={() => handleClick(record)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-2 text-left",
+                      isRecordActive(record.id) && "text-foreground",
+                    )}
                   >
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <MessageSquare
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0",
+                        isRecordActive(record.id)
+                          ? "text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    />
                     <span className="truncate">{record.question}</span>
                   </button>
 
@@ -316,13 +336,25 @@ export function Sidebar() {
                               className={cn(
                                 "group/item flex min-w-0 items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-grab active:cursor-grabbing",
                                 dragRecordId === record.id && "opacity-50",
+                                isRecordActive(record.id) && "bg-primary/5",
                               )}
                             >
                               <button
+                                type="button"
                                 onClick={() => handleClick(record)}
-                                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                className={cn(
+                                  "flex min-w-0 flex-1 items-center gap-2 text-left",
+                                  isRecordActive(record.id) && "text-foreground",
+                                )}
                               >
-                                <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <MessageSquare
+                                  className={cn(
+                                    "h-3 w-3 shrink-0",
+                                    isRecordActive(record.id)
+                                      ? "text-primary"
+                                      : "text-muted-foreground",
+                                  )}
+                                />
                                 <span className="truncate">
                                   {record.question}
                                 </span>
