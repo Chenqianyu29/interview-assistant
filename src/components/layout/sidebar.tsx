@@ -168,15 +168,15 @@ export function Sidebar() {
         ) : (
           /* ---- Favorites Tab (Folder Tree) ---- */
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="mb-2 flex shrink-0 justify-end">
+            <div className="mb-2 w-full shrink-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 px-2.5 text-xs"
+                className="h-8 w-full gap-1.5 px-2.5 text-xs"
                 onClick={() => setCreateFolderOpen(true)}
               >
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center gap-1.5">
                   <FolderPlus className="h-3.5 w-3.5" />
                   新建收藏夹
                 </span>
