@@ -16,6 +16,10 @@ interface QuestionState {
   parentId: number | null;
   saveStatus: "unsaved" | "saved";
 
+  /** 主答案草稿，用于离开页面前保存；与 result 页 answer 同步 */
+  mainAnswerDraft: string;
+  mainAnswerStreaming: boolean;
+
   starRaw: string;
   starStatus: StarStatus;
   starSections: StarSection[];
@@ -24,6 +28,9 @@ interface QuestionState {
   followUpStatus: AsyncStatus;
 
   startQuestion: (q: string, role: Role, parentId?: number | null) => void;
+  setMainAnswerDraft: (s: string) => void;
+  setMainAnswerStreaming: (v: boolean) => void;
+  resetQuestionSession: () => void;
   save: () => void;
   unsave: () => void;
 
@@ -69,6 +76,9 @@ export const useQuestionStore = create<QuestionState>()((set) => ({
   parentId: null,
   saveStatus: "unsaved",
 
+  mainAnswerDraft: "",
+  mainAnswerStreaming: false,
+
   starRaw: "",
   starStatus: "idle",
   starSections: [],
@@ -83,6 +93,28 @@ export const useQuestionStore = create<QuestionState>()((set) => ({
       roleSnapshot,
       parentId: parentId ?? null,
       saveStatus: "unsaved",
+      mainAnswerDraft: "",
+      mainAnswerStreaming: false,
+      starRaw: "",
+      starStatus: "idle",
+      starSections: [],
+      followUps: [],
+      followUpStatus: "idle",
+    }),
+
+  setMainAnswerDraft: (mainAnswerDraft) => set({ mainAnswerDraft }),
+
+  setMainAnswerStreaming: (mainAnswerStreaming) => set({ mainAnswerStreaming }),
+
+  resetQuestionSession: () =>
+    set({
+      questionId: null,
+      question: null,
+      roleSnapshot: null,
+      parentId: null,
+      saveStatus: "unsaved",
+      mainAnswerDraft: "",
+      mainAnswerStreaming: false,
       starRaw: "",
       starStatus: "idle",
       starSections: [],

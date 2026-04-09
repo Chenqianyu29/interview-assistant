@@ -6,6 +6,7 @@ import { useAuthStore, clearSessionAndRedirectToLogin } from "@/stores/auth";
 import { useHistoryStore } from "@/stores/history";
 import { useRoleStore } from "@/stores/role";
 import type { Role } from "@/types/role";
+import { NavigationGuardProvider } from "@/components/navigation-guard";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 
@@ -52,14 +53,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex h-screen flex-col">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex flex-1 flex-col overflow-hidden">
-          {children}
-        </main>
+    <NavigationGuardProvider>
+      <div className="flex h-screen flex-col">
+        <Header />
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar />
+          <main className="flex flex-1 flex-col overflow-hidden">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </NavigationGuardProvider>
   );
 }

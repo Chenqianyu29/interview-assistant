@@ -8,10 +8,12 @@ import { useRoleStore, selectEffectiveRole } from "@/stores/role";
 import { useQuestionStore } from "@/stores/question";
 import { formatRole, isRoleEqual } from "@/types/role";
 import type { Role } from "@/types/role";
+import { useTryNavigate } from "@/components/navigation-guard";
 import { RoleSelectorPanel } from "@/components/role-selector";
 
 export default function HomePage() {
   const router = useRouter();
+  const tryNavigate = useTryNavigate();
   const [input, setInput] = useState("");
 
   const globalRole = useRoleStore((s) => s.globalRole);
@@ -28,10 +30,12 @@ export default function HomePage() {
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
-    startQuestion(trimmed, effectiveRole);
-    clearOverride();
-    setInput("");
-    router.push("/result");
+    tryNavigate(() => {
+      startQuestion(trimmed, effectiveRole);
+      clearOverride();
+      setInput("");
+      router.push("/result");
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

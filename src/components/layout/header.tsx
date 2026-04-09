@@ -8,6 +8,7 @@ import { Popover } from "@base-ui/react/popover";
 import { useRoleStore } from "@/stores/role";
 import { useAuthStore } from "@/stores/auth";
 import { formatRole } from "@/types/role";
+import { useTryNavigate } from "@/components/navigation-guard";
 import { RoleSelectorPanel } from "@/components/role-selector";
 
 const navItems = [
@@ -18,14 +19,17 @@ const navItems = [
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
+  const tryNavigate = useTryNavigate();
   const globalRole = useRoleStore((s) => s.globalRole);
   const setGlobalRole = useRoleStore((s) => s.setGlobalRole);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
   const handleLogout = () => {
-    logout();
-    router.push("/login");
+    tryNavigate(() => {
+      logout();
+      router.push("/login");
+    });
   };
 
   return (

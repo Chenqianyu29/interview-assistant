@@ -6,6 +6,7 @@ import { useQuestionStore } from "@/stores/question";
 import { useHistoryStore } from "@/stores/history";
 import { formatRole } from "@/types/role";
 import { Button } from "@/components/ui/button";
+import { useTryNavigate } from "@/components/navigation-guard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StarCard } from "@/components/star-card";
 import { FollowUpList } from "@/components/follow-up-list";
@@ -22,6 +23,7 @@ import {
 
 export default function ResultPage() {
   const router = useRouter();
+  const tryNavigate = useTryNavigate();
 
   const questionId = useQuestionStore((s) => s.questionId);
   const question = useQuestionStore((s) => s.question);
@@ -42,6 +44,10 @@ export default function ResultPage() {
   const setFollowUpStatus = useQuestionStore((s) => s.setFollowUpStatus);
   const resetFollowUps = useQuestionStore((s) => s.resetFollowUps);
   const startQuestion = useQuestionStore((s) => s.startQuestion);
+  const setMainAnswerDraft = useQuestionStore((s) => s.setMainAnswerDraft);
+  const setMainAnswerStreaming = useQuestionStore(
+    (s) => s.setMainAnswerStreaming,
+  );
 
   const addRecord = useHistoryStore((s) => s.addRecord);
   const updateRecord = useHistoryStore((s) => s.updateRecord);
@@ -57,6 +63,14 @@ export default function ResultPage() {
   const [isHistoryView, setIsHistoryView] = useState(false);
   const [showUnsaveConfirm, setShowUnsaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setMainAnswerDraft(answer);
+  }, [answer, setMainAnswerDraft]);
+
+  useEffect(() => {
+    setMainAnswerStreaming(isStreaming);
+  }, [isStreaming, setMainAnswerStreaming]);
 
   const starAbortRef = useRef<AbortController | null>(null);
   const followUpAbortRef = useRef<AbortController | null>(null);
@@ -289,7 +303,10 @@ export default function ResultPage() {
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">暂无问题</p>
-          <Button variant="link" onClick={() => router.push("/")}>
+          <Button
+            variant="link"
+            onClick={() => tryNavigate(() => router.push("/"))}
+          >
             返回提问
           </Button>
         </div>
@@ -302,8 +319,9 @@ export default function ResultPage() {
       <div className="mx-auto w-full max-w-2xl px-4 py-8">
         {/* Back */}
         <button
+          type="button"
           className="mb-6 flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          onClick={() => router.push("/")}
+          onClick={() => tryNavigate(() => router.push("/"))}
         >
           <ArrowLeft className="h-4 w-4" />
           新问题

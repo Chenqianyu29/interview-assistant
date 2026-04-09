@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CreateFolderDialog } from "@/components/create-folder-dialog";
 import { FavoriteDialog } from "@/components/favorite-dialog";
+import { useTryNavigate } from "@/components/navigation-guard";
 import {
   MessageSquare,
   Star,
@@ -26,6 +27,7 @@ type Tab = "history" | "favorites";
 
 export function Sidebar() {
   const router = useRouter();
+  const tryNavigate = useTryNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("history");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [favoriteRecordId, setFavoriteRecordId] = useState<number | null>(null);
@@ -46,10 +48,12 @@ export function Sidebar() {
   const setFavoriteFolder = useHistoryStore((s) => s.setFavoriteFolder);
 
   const handleClick = (record: QuestionRecord) => {
-    const store = useQuestionStore.getState();
-    store.startQuestion(record.question, record.roleSnapshot, record.parentId);
-    useQuestionStore.setState({ questionId: record.id });
-    router.push("/result");
+    tryNavigate(() => {
+      const store = useQuestionStore.getState();
+      store.startQuestion(record.question, record.roleSnapshot, record.parentId);
+      useQuestionStore.setState({ questionId: record.id });
+      router.push("/result");
+    });
   };
 
   const handleToggleFolder = (folderId: number) => {
