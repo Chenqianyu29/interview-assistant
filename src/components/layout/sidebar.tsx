@@ -5,7 +5,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHistoryStore, type QuestionRecord } from "@/stores/history";
 import { useQuestionStore } from "@/stores/question";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CreateFolderDialog } from "@/components/create-folder-dialog";
 import { FavoriteDialog } from "@/components/favorite-dialog";
 import {
   MessageSquare,
@@ -13,6 +15,7 @@ import {
   Trash2,
   Clock,
   Folder,
+  FolderPlus,
   ChevronRight,
   Pencil,
   Check,
@@ -33,6 +36,7 @@ export function Sidebar() {
   const [unfavoriteId, setUnfavoriteId] = useState<number | null>(null);
   const [dragRecordId, setDragRecordId] = useState<number | null>(null);
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   const records = useHistoryStore((s) => s.records);
   const folders = useHistoryStore((s) => s.folders);
@@ -163,22 +167,42 @@ export function Sidebar() {
           )
         ) : (
           /* ---- Favorites Tab (Folder Tree) ---- */
-          folders.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Star className="h-4 w-4" />
-                暂无收藏夹
-              </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="mb-2 flex shrink-0 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-xs"
+                onClick={() => setCreateFolderOpen(true)}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <FolderPlus className="h-3.5 w-3.5" />
+                  新建收藏夹
+                </span>
+              </Button>
             </div>
-          ) : (
-            <div className="grid gap-0.5">
-              {folders.map((folder) => {
+            {folders.length === 0 ? (
+              <div className="flex min-h-[40vh] flex-1 items-center justify-center">
+                <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <Star className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>暂无收藏夹</span>
+                </p>
+              </div>
+            ) : (
+              <div className="grid min-h-0 flex-1 gap-0.5">
+                {folders.map((folder, folderIndex) => {
                 const isExpanded = expandedFolderId === folder.id;
-                const count = getFolderCount(folder.id);
                 const isRenaming = renamingId === folder.id;
 
                 return (
-                  <div key={folder.id}>
+                  <div
+                    key={
+                      Number.isFinite(folder.id)
+                        ? folder.id
+                        : `folder-fallback-${folderIndex}`
+                    }
+                  >
                     {/* Folder row */}
                     <div
                       className={cn(
@@ -228,8 +252,9 @@ export function Sidebar() {
                           </button>
                         </div>
                       ) : (
-                        <>
+                        <div className="flex min-w-0 flex-1 items-center gap-1">
                           <button
+                            type="button"
                             onClick={() => handleToggleFolder(folder.id)}
                             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                           >
@@ -245,6 +270,7 @@ export function Sidebar() {
 
                           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                             <button
+                              type="button"
                               onClick={() =>
                                 handleStartRename(folder.id, folder.name)
                               }
@@ -254,6 +280,7 @@ export function Sidebar() {
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => setDeleteFolderId(folder.id)}
                               className="rounded p-1 text-muted-foreground hover:text-destructive"
                               title="删除收藏夹"
@@ -261,7 +288,7 @@ export function Sidebar() {
                               <Trash2 className="h-3 w-3" />
                             </button>
                           </div>
-                        </>
+                        </div>
                       )}
                     </div>
 
@@ -312,9 +339,10 @@ export function Sidebar() {
                     )}
                   </div>
                 );
-              })}
-            </div>
-          )
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -370,6 +398,12 @@ export function Sidebar() {
         onConfirm={() => {
           if (unfavoriteId) setFavoriteFolder(unfavoriteId, null);
         }}
+      />
+
+      <CreateFolderDialog
+        open={createFolderOpen}
+        onOpenChange={setCreateFolderOpen}
+        onCreated={(id) => setExpandedFolderId(id)}
       />
 
       {favoriteRecordId !== null && (

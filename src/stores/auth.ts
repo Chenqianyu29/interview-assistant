@@ -9,6 +9,14 @@ interface AuthState {
   logout: () => void;
 }
 
+/** Cookie session 与 persist 的 isAuthenticated 可能不一致（过期、清 cookie 等），遇 401 时调用以回到登录页 */
+export function clearSessionAndRedirectToLogin() {
+  useAuthStore.getState().logout();
+  if (typeof window !== "undefined") {
+    window.location.assign("/login");
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({

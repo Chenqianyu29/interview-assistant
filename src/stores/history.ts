@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import type { Role } from "@/types/role";
+import { clearSessionAndRedirectToLogin } from "@/stores/auth";
+
+const cred: RequestCredentials = "include";
 
 export interface FavoriteFolder {
   id: number;
@@ -33,6 +36,30 @@ interface DbRecord {
   folderId: number | null;
   category: string;
   createdAt: string;
+}
+
+/** Drizzle/Neon may return `id` as number or bigint; JSON must become a finite number for React keys & UI. */
+function toFavoriteFolder(raw: unknown): FavoriteFolder | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const idRaw = r.id;
+  let id: number;
+  if (typeof idRaw === "bigint") id = Number(idRaw);
+  else if (typeof idRaw === "number") id = idRaw;
+  else if (typeof idRaw === "string") id = Number(idRaw);
+  else return null;
+  if (!Number.isFinite(id)) return null;
+  const createdAt = r.createdAt;
+  return {
+    id,
+    name: String(r.name ?? ""),
+    createdAt:
+      typeof createdAt === "string"
+        ? createdAt
+        : createdAt instanceof Date
+          ? createdAt.toISOString()
+          : String(createdAt ?? ""),
+  };
 }
 
 function toRecord(r: DbRecord): QuestionRecord {
@@ -82,11 +109,20 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
 
   fetchAll: async () => {
     const [recordsRes, foldersRes] = await Promise.all([
-      fetch("/api/records"),
-      fetch("/api/folders"),
+      fetch("/api/records", { credentials: cred }),
+      fetch("/api/folders", { credentials: cred }),
     ]);
+    if (recordsRes.status === 401 || foldersRes.status === 401) {
+      clearSessionAndRedirectToLogin();
+      return;
+    }
     const rawRecords: DbRecord[] = recordsRes.ok ? await recordsRes.json() : [];
-    const folders: FavoriteFolder[] = foldersRes.ok ? await foldersRes.json() : [];
+    const rawFolders = foldersRes.ok ? await foldersRes.json() : [];
+    const folders: FavoriteFolder[] = Array.isArray(rawFolders)
+      ? rawFolders
+          .map(toFavoriteFolder)
+          .filter((f): f is FavoriteFolder => f !== null)
+      : [];
     set({
       records: rawRecords.map(toRecord),
       folders,
@@ -97,6 +133,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
   addRecord: async (data) => {
     const res = await fetch("/api/records", {
       method: "POST",
+      credentials: cred,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         question: data.question,
@@ -129,6 +166,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
 
     await fetch(`/api/records/${id}`, {
       method: "PATCH",
+      credentials: cred,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(apiPatch),
     });
@@ -136,7 +174,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
 
   removeRecord: async (id) => {
     set((s) => ({ records: s.records.filter((r) => r.id !== id) }));
-    await fetch(`/api/records/${id}`, { method: "DELETE" });
+    await fetch(`/api/records/${id}`, { method: "DELETE", credentials: cred });
   },
 
   setFavoriteFolder: async (recordId, folderId) => {
@@ -147,6 +185,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     }));
     await fetch(`/api/records/${recordId}`, {
       method: "PATCH",
+      credentials: cred,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ folderId }),
     });
@@ -158,6 +197,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     }));
     await fetch(`/api/records/${id}`, {
       method: "PATCH",
+      credentials: cred,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category }),
     });
@@ -168,10 +208,27 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
   addFolder: async (name) => {
     const res = await fetch("/api/folders", {
       method: "POST",
+      credentials: cred,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
-    const folder: FavoriteFolder = await res.json();
+    const raw: unknown = await res.json();
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearSessionAndRedirectToLogin();
+        throw new Error("登录已失效，请重新登录");
+      }
+      const msg =
+        raw &&
+        typeof raw === "object" &&
+        "error" in raw &&
+        typeof (raw as { error: unknown }).error === "string"
+          ? (raw as { error: string }).error
+          : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    const folder = toFavoriteFolder(raw);
+    if (!folder) throw new Error("Invalid folder response");
     set((s) => ({ folders: [...s.folders, folder] }));
     return folder.id;
   },
@@ -182,6 +239,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     }));
     await fetch(`/api/folders/${id}`, {
       method: "PATCH",
+      credentials: cred,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
@@ -191,7 +249,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     const hasRecords = get().records.some((r) => r.folderId === id);
     if (hasRecords) return false;
     set((s) => ({ folders: s.folders.filter((f) => f.id !== id) }));
-    await fetch(`/api/folders/${id}`, { method: "DELETE" });
+    await fetch(`/api/folders/${id}`, { method: "DELETE", credentials: cred });
     return true;
   },
 }));

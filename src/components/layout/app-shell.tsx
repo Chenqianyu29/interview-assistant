@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/auth";
+import { useAuthStore, clearSessionAndRedirectToLogin } from "@/stores/auth";
 import { useHistoryStore } from "@/stores/history";
 import { useRoleStore } from "@/stores/role";
 import type { Role } from "@/types/role";
@@ -27,8 +27,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     useHistoryStore.getState().fetchAll();
 
-    fetch("/api/settings")
+    fetch("/api/settings", { credentials: "include" })
       .then(async (res) => {
+        if (res.status === 401) {
+          clearSessionAndRedirectToLogin();
+          return;
+        }
         if (!res.ok) return;
         const s = await res.json();
         const role: Role = {
